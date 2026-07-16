@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unrbl-ml-pipeline"
+dynamic = ["version"]
+description = "Standardized pipeline for training ML models, replicating results, and studying neurorobotics."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Utah Neurorobotics Lab" }]
+requires-python = ">=3.7"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+# package core is the inference surface only, so it stays installable on the 3.7 lab machine.
+# No env markers: modern numpy declares its own requires-python, so pip on 3.7 resolves back to
+# 1.21.6 by itself and pip on 3.11+ takes current.
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+# No python_version marker on purpose: on 3.7 this fails loudly with "no matching distribution"
+# rather than silently installing nothing. TF 2.16+ needs >=3.10.
+train = ["tensorflow>=2.16", "scikit-learn", "matplotlib"]
+dev = ["pytest", "ruff", "build"]
+
+[project.urls]
+Homepage = "https://github.com/UtahNeuroroboticsLab/unrbl_ml_pipeline"
+
+[tool.hatch.version]
+path = "src/unrbl_ml_pipeline/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/unrbl_ml_pipeline"]
+
+# this is the enforcement for the 3.7 syntax constraint (no match, no `X | Y`
+# annotations, no dataclass slots). Drop the floor here when the 3.7 machine is retired.
+# ruff is pretty fast: https://docs.astral.sh/ruff/
+[tool.ruff]
+target-version = "py37"
