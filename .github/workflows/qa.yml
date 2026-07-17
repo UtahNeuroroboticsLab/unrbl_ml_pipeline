@@ -5,6 +5,19 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # PINNED DELIBERATELY -- DO NOT "UPDATE" THIS, AND NEVER MOVE IT TO :latest.
+  #
+  # This is the newest manylinux2014_i686 image that still ships CPython 3.7, and its glibc is
+  # 2.17 -- BELOW the Ripple Summit's 2.19. Testing from the old side means a pass here implies
+  # a pass on the target. Its pip (22.1.2) is past the >=19.3 needed to recognise manylinux2014
+  # tags, which unrbl-tflite-runtime is published with.
+  #
+  # :latest has no cp37 (pruned after EOL; the CentOS 7 base went EOL 2024-06-30), so "updating"
+  # this line silently deletes the only real coverage this repo has. The tag is EOL by design.
+  # Pinned by digest so it cannot be moved underneath us. Mirrors unrbl_tflite_runtime/qa.yml.
+  I686_IMAGE: quay.io/pypa/manylinux2014_i686@sha256:683a201f94d04ff9548ab51c9583b28a34a326a96363c3520260efdfdca3cc03
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,14 +30,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          # tensorflow is a core dep on 3.10+, so an uncached install is ~600MB per matrix leg.
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest
 
-  # 3.7 can't come from setup-python on ubuntu-latest (dropped on Ubuntu 24.04), so it runs in a
-  # container. Installs the built wheel, not `-e .`: hatchling needs >=3.8, so an editable/sdist
-  # install would fail on 3.7 for reasons unrelated to our code. The lab machine installs a wheel
-  # from PyPI - this tests that path.
   build-wheel:
     runs-on: ubuntu-latest
     steps:
@@ -39,15 +51,48 @@ jobs:
           name: wheel
           path: dist/*.whl
 
-  test-py37:
+  # The job that holds the 3.7 support claim honest. It must run on real i686: the Summit's
+  # interpreter (unrbl-tflite-runtime) ships only a cp37 i686 wheel, so on an x86_64 3.7 box it
+  # cannot install at all and this job would prove nothing about the deploy path.
+  #
+  # Installs the built wheel, not `-e .`: hatchling needs >=3.8, so an editable/sdist install
+  # would fail on 3.7 for reasons unrelated to our code. The Summit installs a wheel from PyPI --
+  # this tests that path, markers and all.
+  test-py37-i686:
     needs: build-wheel
-    runs-on: ubuntu-latest
-    container: python:3.7-slim
+    runs-on: ubuntu-latest        # NOT container: -- see below
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: wheel
           path: dist
-      - run: pip install dist/*.whl pytest
-      - run: pytest
+
+      # NOT a `container:` job: GitHub injects an x64 Node binary to run actions inside container
+      # jobs, and it will not execute in a 32-bit container. `docker run` inside a normal x64 job
+      # sidesteps that entirely -- which is why checkout/download-artifact run outside it, above.
+      #
+      # One `docker run`, not two: installing the wheel is the slow part, so the resolve assertion
+      # and the tests share a single install.
+      - name: Install + assert resolve + real inference on 32-bit Python 3.7 / glibc 2.17
+        run: |
+          docker run --rm --platform linux/386 -v "$PWD:/io" -w /io "$I686_IMAGE" sh -c '
+            set -eu
+            PY=/opt/python/cp37-cp37m/bin/python
+            $PY -m pip install dist/*.whl pytest
+            $PY -m pip list
+
+            # The markers are the whole design, so assert the resolve directly rather than
+            # trusting that green tests imply it -- load_model() would happily pass using
+            # tf.lite if tensorflow ever leaked onto this interpreter.
+            $PY -m pip show unrbl-tflite-runtime > /dev/null || {
+              echo "::error::unrbl-tflite-runtime missing on 3.7 -- the <3.8 marker did not fire"
+              exit 1
+            }
+            if $PY -m pip show tensorflow > /dev/null 2>&1; then
+              echo "::error::tensorflow installed on 3.7 -- the >=3.10 marker leaked"
+              exit 1
+            fi
+
+            $PY -m pytest tests/ -v
+          '

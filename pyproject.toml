@@ -14,20 +14,46 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
 ]
-# package core is the inference surface only, so it stays installable on the 3.7 lab machine.
-# No env markers: modern numpy declares its own requires-python, so pip on 3.7 resolves back to
-# 1.21.6 by itself and pip on 3.11+ takes current.
-dependencies = ["numpy>=1.21"]
+# One install command, two outcomes, chosen by the interpreter:
+#   3.10-3.13 -> the full stack (train + inference, tf.lite/keras interpreter)
+#   3.7       -> numpy + the lab's TFLite 2.5.0 build, inference only (the Ripple Summit)
+#
+# Markers, not extras, because an extra can only ADD to core -- there is no way to express
+# "core minus tensorflow" as an extra. A false marker drops its dep silently, which is the
+# subtraction we need. The TF marker is mandatory, not cosmetic: TF declares requires-python
+# >=3.10, so an unmarked `tensorflow` here would fail the whole 3.7 resolve with "no matching
+# distribution" and take the Summit's install down with it.
+#
+# BUMP THE <'3.14' CEILING WHEN TF SHIPS A cp314 WHEEL. It is not redundant with TF's own
+# requires-python (">=3.10", no upper bound): TF claims 3.14 is acceptable and then ships no
+# cp314 wheel, so without the ceiling pip fails the ENTIRE install on 3.14 instead of dropping
+# TF. For an opt-in extra that loud failure was right; for a CORE dep it makes the package
+# uninstallable on the newest Python. Cost of forgetting to bump: 3.14 silently gets no TF.
+# Grep 3.14 across this file, training/__init__.py, and the README together.
+#
+# numpy stays marker-free: it declares its own requires-python, so pip lands on 1.21.6 for 3.7
+# and current numpy on 3.10+ by itself. Don't add one.
+#
+# Known gaps -- both land on numpy only, no interpreter, load_model() raises:
+#   3.8/3.9 -> TF needs >=3.10 and the i686 wheel is cp37-only, so neither marker fires
+#   3.14+   -> the ceiling above
+# No lab machine runs either. CI covers what ships: 3.7 (i686) and 3.11-3.13.
+# requires-python stays >=3.7: raise it and pip refuses the Summit outright.
+dependencies = [
+    "numpy>=1.21",
+    "tensorflow>=2.16;     python_version >= '3.10' and python_version < '3.14'",
+    "scikit-learn;         python_version >= '3.10' and python_version < '3.14'",
+    "matplotlib;           python_version >= '3.10' and python_version < '3.14'",
+    "unrbl-tflite-runtime; python_version <  '3.8'",
+]
 
 [project.optional-dependencies]
-# No python_version marker on purpose: on 3.7 this fails loudly with "no matching distribution"
-# rather than silently installing nothing. TF 2.16+ needs >=3.10.
-train = ["tensorflow>=2.16", "scikit-learn", "matplotlib"]
 dev = ["pytest", "ruff", "build"]
 
 [project.urls]

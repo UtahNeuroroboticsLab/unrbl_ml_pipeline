@@ -1,9 +1,11 @@
 """Model loading for deployment targets.
 
-Core module: must import on a core-only install (numpy only) and stay Python 3.7-syntax-clean.
+Root module: must import on a 3.7 install (numpy + tflite_runtime, no TF) and stay Python
+3.7-syntax-clean.
 
-Backends are imported lazily *inside* each branch on purpose. A core-only install has neither
-tensorflow nor tflite_runtime, and `import unrbl_ml_pipeline` must still work on the Summit.
+Backends are imported lazily *inside* each branch on purpose. Which one exists depends on the
+interpreter -- pyproject's markers install tensorflow on 3.10-3.13 and the lab's TFLite 2.5.0
+build on 3.7 -- and `import unrbl_ml_pipeline` must not drag either one in.
 """
 
 import os
@@ -11,8 +13,6 @@ import sys
 
 TFLITE_SUFFIX = ".tflite"
 KERAS_SUFFIX = ".keras"
-
-_SUMMIT_WHEEL_URL = "https://github.com/UtahNeuroroboticsLab/tflite_for_rippleSummit"
 
 
 def load_model(path):
@@ -42,13 +42,15 @@ def _load_tflite(path):
         try:
             from tensorflow.lite import Interpreter
         except ImportError:
+            # On 3.7 and 3.10-3.13 the markers guarantee one of these, so getting here means
+            # either a marker gap (3.8/3.9, or 3.14+ where TF has no wheel) or an environment
+            # assembled some other way (--no-deps, a stripped venv).
             raise ImportError(
                 "Loading {} needs a TFLite interpreter, and neither tflite_runtime nor "
-                "tensorflow is installed.\n"
-                "  Ripple Summit (Python 3.7, i686): install the lab-built wheel from {}\n"
-                "  Linux x86_64: pip install tflite-runtime\n"
-                "  Anywhere else: pip install \"unrbl-ml-pipeline[train]\" (uses tf.lite)".format(
-                    TFLITE_SUFFIX, _SUMMIT_WHEEL_URL
+                "tensorflow is installed. `pip install unrbl-ml-pipeline` provides one on "
+                "Python 3.7 (unrbl-tflite-runtime) and on 3.10-3.13 (tensorflow), but not on "
+                "3.8/3.9 or 3.14+ (running {}.{}) -- TensorFlow has no wheels there.".format(
+                    TFLITE_SUFFIX, sys.version_info[0], sys.version_info[1]
                 )
             )
     interpreter = Interpreter(model_path=str(path))
@@ -75,7 +77,8 @@ def _load_keras(path):
         import keras
     except ImportError:
         raise ImportError(
-            "Loading {} needs Keras: pip install \"unrbl-ml-pipeline[train]\"".format(
+            "Loading {} needs Keras, which a normal `pip install unrbl-ml-pipeline` brings in "
+            "via tensorflow on this interpreter. Reinstall without --no-deps.".format(
                 KERAS_SUFFIX
             )
         )

@@ -1,8 +1,11 @@
-"""Guards the core/[train] boundary.
+"""Guards the 3.7 boundary.
 
 This is the mechanical enforcement of the import rule. Without it the rule is only a README
 paragraph, and the first module-level `import tensorflow` in a root module breaks the Summit
-silently -- on a dev box with [train] installed, everything still looks fine.
+silently -- on a dev box, where the markers always install TF, everything still looks fine.
+
+Now that TF is a core dependency on 3.10+ this matters more, not less: there is no longer any
+dev environment where a stray root-level `import tensorflow` fails on its own.
 """
 
 import subprocess
