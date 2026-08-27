@@ -16,8 +16,8 @@ One command, everywhere. What you get is chosen by the interpreter you install i
 
 The distribution is `unrbl-ml-pipeline`; the import is `unrbl_ml_pipeline`.
 
-There are no extras to remember — `[train]` and `[rppl]` do not exist. See
-[Why markers](#why-markers) if you want the mechanism.
+<!-- There are no extras to remember - `[train]` and `[rppl]` do not exist. See
+[Why markers](#why-markers) if you want the mechanism. -->
 
 ### Deploying to the Ripple Summit (Python 3.7, Debian 8, i686)
 
@@ -30,11 +30,11 @@ That is the whole install. The interpreter comes from
 rebuild of TFLite 2.5.0 for i686/cp37, which is declared as an ordinary dependency and resolves
 automatically on 3.7.
 
-**Your pip must be >=19.3** to recognise the `manylinux2014` tag from an index — check with
+**Your pip must be >=19.3** to recognise the `manylinux2014` tag from an index - check with
 `pip --version`. Older pip will not see the wheel and the install will fail to resolve.
 
 > **TFLite compatibility ceiling.** The Summit's interpreter is **2.5.0 (2021)**. A model converted by
-> a modern TF converter may use ops or a flatbuffer schema that 2.5.0 cannot load — and this fails
+> a modern TF converter may use ops or a flatbuffer schema that 2.5.0 cannot load - and this fails
 > **on-device after deploy**, not at conversion time. Validate converted models on the Summit (or
 > against a 2.5.0 interpreter) before a run depends on them. There is no automated guard for this yet;
 > add one to the export path when it is written.
@@ -42,14 +42,14 @@ automatically on 3.7.
 ### `.tflite` inference elsewhere
 
 Nothing to install beyond the package. On 3.10+ TensorFlow is a dependency, so `tf.lite` is always
-present — including on Windows and macOS, where no `tflite-runtime` wheel has ever existed.
+present - including on Windows and macOS, where no `tflite-runtime` wheel has ever existed.
 
 `load_model()` tries `tflite_runtime` first and falls back to `tensorflow.lite`, so it uses whichever
 backend your interpreter resolved to without a code change.
 
 ### `.keras` inference
 
-Needs Python **>=3.11** (Keras 3), so **the Summit cannot load `.keras` at all** — the newest TF that
+Needs Python **>=3.11** (Keras 3), so **the Summit cannot load `.keras` at all** - the newest TF that
 runs on 3.7 is 2.11, which predates the format. Convert to `.tflite` on a modern machine and deploy
 that. `load_model()` checks the interpreter version and says so explicitly rather than failing with a
 misleading "No module named keras".
@@ -69,31 +69,31 @@ dependencies = [
 ]
 ```
 
-An extra can only **add** to the core dependencies — there is no way to spell "core minus
+<!-- An extra can only **add** to the core dependencies - there is no way to spell "core minus
 TensorFlow" as an extra, so `[rppl]` could never have meant "the inference-only subset". A marker
 whose condition is false drops its dependency silently, which is exactly the subtraction needed.
 pip evaluates the condition against the interpreter it is installing into, so one command gives the
-full stack on 3.11 and the 2.5.0 interpreter on 3.7.
+full stack on 3.11 and the 2.5.0 interpreter on 3.7. -->
 
 The TF marker is **mandatory, not cosmetic**. TensorFlow declares `requires-python >=3.10`, so an
 unmarked `tensorflow` in `dependencies` would fail the entire 3.7 resolve with "no matching
 distribution" and take the Summit's install down with it.
 
 The `< '3.14'` ceiling is **not** redundant with TF's own `requires-python`. TF declares `>=3.10` with
-no upper bound, then ships no cp314 wheel — so without the ceiling, pip on 3.14 fails the *entire*
+no upper bound, then ships no cp314 wheel - so without the ceiling, pip on 3.14 fails the *entire*
 install rather than dropping TF. **Bump it when TF ships cp314.**
 
 `requires-python` stays `>=3.7` and is load-bearing: raise it to 3.10 and pip refuses the package on
 the Summit outright, making the 3.7 path impossible no matter what the markers say.
 
-`numpy` deliberately has **no** marker — it declares its own `requires-python`, so pip resolves 1.21.6
+`numpy` deliberately has **no** marker - it declares its own `requires-python`, so pip resolves 1.21.6
 on 3.7 and current numpy on 3.10+ by itself. Don't add one.
 
 **Known gaps.** Both resolve to numpy only, with no interpreter, so `load_model()` raises:
 
 | Interpreter | Why |
 |---|---|
-| Python 3.8/3.9 | TF needs >=3.10 and the i686 wheel is cp37-only — neither marker fires |
+| Python 3.8/3.9 | TF needs >=3.10 and the i686 wheel is cp37-only - neither marker fires |
 | Python 3.14+ | the ceiling above; TF has no cp314 wheel yet |
 
 No lab machine runs either, and CI covers what actually ships (3.7 i686, 3.11–3.13). If one ever does,
@@ -124,7 +124,7 @@ Where new code goes:
 
 ### The two rules that packaging imposes
 
-Both survive the move to markers — the Summit now gets a *marker-thinned* install rather than a
+Both survive the move to markers - the Summit now gets a *marker-thinned* install rather than a
 core-only one, but it still has no TensorFlow and still runs Python 3.7.
 
 1. **Root modules must stay Python 3.7-syntax-clean.** No `match`, no `X | Y` annotations, no dataclass
@@ -147,7 +147,7 @@ pip install -e ".[dev]"                             # use Python 3.11-3.13; pull
 ```
 
 **Use 3.11–3.13, not 3.14.** TensorFlow has no cp314 wheel, so a 3.14 dev install resolves to numpy
-only and `test_tflite_inference.py` skips — you would be running a suite that cannot exercise
+only and `test_tflite_inference.py` skips - you would be running a suite that cannot exercise
 `load_model()` at all.
 
 Before opening a PR:
@@ -158,7 +158,7 @@ pytest
 ```
 
 Both run in CI across 3.11/3.12/3.13. A separate job runs the built wheel on **real 32-bit i686
-Python 3.7** and executes actual inference through it — that job is what holds the 3.7 support claim
+Python 3.7** and executes actual inference through it - that job is what holds the 3.7 support claim
 honest. It cannot be done in a `python:3.7-slim` container: that image is x86_64, and the Summit's
 interpreter wheel is i686-only, so it would not install there at all.
 
@@ -175,10 +175,10 @@ docker run --rm --platform linux/386 -v "$PWD:/io:ro" \
 
 **Why it copies to `/work` instead of running in `/io`:** on Docker Desktop (Windows/macOS) the bind
 mount is not a real Linux filesystem and `mmap` fails on it, so the TFLite interpreter dies with
-`ValueError: Mmap of '11' failed` while loading the model — a mount artifact, not a bug in your
+`ValueError: Mmap of '11' failed` while loading the model - a mount artifact, not a bug in your
 change. CI runs on a Linux runner where the mount is real, so `qa.yml` works straight out of `/io`.
 
-That image digest is pinned deliberately — read the comment in `qa.yml` before changing it.
+That image digest is pinned deliberately - read the comment in `qa.yml` before changing it.
 
 ### Releasing
 
