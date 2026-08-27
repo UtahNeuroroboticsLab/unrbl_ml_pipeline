@@ -2,6 +2,7 @@ name: Publish
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
 
     # TODO: we should have a testpypi as well
