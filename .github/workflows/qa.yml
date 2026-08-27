@@ -82,7 +82,7 @@ jobs:
             $PY -m pip install dist/*.whl pytest
             $PY -m pip list
 
-            # The markers are the whole design, so assert the resolve directly rather than
+            # The markers are the whole design, so assert the resolved directly rather than
             # trusting that green tests imply it -- load_model() would happily pass using
             # tf.lite if tensorflow ever leaked onto this interpreter.
             $PY -m pip show unrbl-tflite-runtime > /dev/null || {
