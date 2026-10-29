@@ -1,4 +1,6 @@
-"""Preprocessing step: filter loaded KDF files by correlation quality score.
+"""
+Preprocessing step:
+filter loaded KDF files by correlation quality score.
 
 Author: Leonardo M. Ferrisi
 Date: 2026-10-29
@@ -55,8 +57,13 @@ def run(state, config):
                           reason=None if score >= beta else f"Score below beta {beta}")
         if score >= beta:
             kept.append(f)
+            if state.progress is not None:
+                state.progress.file(f.path, config, decision="KEEP", score=score,
+                                    samples=len(f.features))
         else:
             state.rejected.append(f)
+            if state.progress is not None:
+                state.progress.file(f.path, config, decision="REJECT", score=score, threshold=beta)
     state.files = kept
     if not kept:
         raise RuntimeError(

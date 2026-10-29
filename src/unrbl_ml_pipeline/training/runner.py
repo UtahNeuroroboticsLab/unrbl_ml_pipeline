@@ -9,6 +9,9 @@ from uuid import uuid4
 import numpy as np
 
 from .config import resolve_config
+from .metrics import regression_metrics
+from .progress import TrainingProgress
+from .reporting import plot_predictions, write_performance_report
 from .train import _resolve_module, train
 
 
@@ -34,28 +37,6 @@ def _write_json(path, value):
                     encoding="utf-8")
 
 
-def regression_metrics(target, prediction, names=None):
-    """Aggregate and per-DOF errors in original target units."""
-    target, prediction = np.asarray(target), np.asarray(prediction)
-    if target.shape != prediction.shape or target.ndim != 2 or not len(target):
-        raise ValueError("Metrics require nonempty matching [samples, DOFs] arrays")
-    if not np.isfinite(target).all() or not np.isfinite(prediction).all():
-        raise ValueError("Cannot report metrics for non-finite targets or predictions")
-    error = prediction.astype(np.float64) - target
-    mse = np.mean(error ** 2, axis=0)
-    mae = np.mean(np.abs(error), axis=0)
-    names = names or [f"dof_{i}" for i in range(target.shape[1])]
-    if len(names) != target.shape[1]:
-        raise ValueError("DOF names must match the target dimension")
-    return {
-        "samples": len(target),
-        "aggregate": {"mse": float(mse.mean()), "rmse": float(np.sqrt(mse.mean())),
-                      "mae": float(mae.mean())},
-        "per_dof": [{"name": name, "mse": float(mse[i]), "rmse": float(np.sqrt(mse[i])),
-                     "mae": float(mae[i])} for i, name in enumerate(names)],
-    }
-
-
 def _plots(run_dir, results, names):
     # FigureCanvasAgg avoids display/backend changes in callers' applications.
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -76,32 +57,8 @@ def _plots(run_dir, results, names):
         fig.savefig(run_dir / "loss.png", dpi=150)
         fig.clear()
 
-    truth, pred = results["Y_test"], results["Y_pred"]
-    ids = results["trial_id_test"]
-    boundaries = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1, len(ids)]
-    stride = max(1, len(ids) // 10000)
-    # NaNs break lines between segments, even after plotting subsampling.
-    x, indices = [], []
-    for start, end in zip(boundaries[:-1], boundaries[1:]):
-        selected = np.unique(np.r_[np.arange(start, end, stride), end - 1])
-        x.extend(selected.tolist() + [np.nan])
-        indices.extend(selected.tolist() + [-1])
-    indices = np.asarray(indices)
-    fig = Figure(figsize=(12, 2.5 * truth.shape[1]), layout="constrained")
-    FigureCanvasAgg(fig)
-    axes = fig.subplots(truth.shape[1], 1, squeeze=False)[:, 0]
-    for d, ax in enumerate(axes):
-        for values, label, style, color in ((truth, "Target", "-", "black"),
-                                            (pred, "Prediction", "--", "0.4")):
-            y = values[np.maximum(indices, 0), d].astype(float)
-            y[indices < 0] = np.nan
-            ax.plot(x, y, style, color=color, linewidth=0.8, label=label)
-        ax.set_ylabel(names[d])
-    axes[0].legend(frameon=False)
-    axes[0].set_title("Held-out predictions (gaps mark trial/recording boundaries)")
-    axes[-1].set_xlabel("Sample index in concatenated test segments")
-    fig.savefig(run_dir / "predictions.png", dpi=150)
-    fig.clear()
+    plot_predictions(run_dir / "predictions.png", results["Y_test"], results["Y_pred"],
+                     results["trial_id_test"], names)
 
 
 def run_training(model="clstm_decoder", *, config=None, config_path=None,
@@ -127,9 +84,13 @@ def run_training(model="clstm_decoder", *, config=None, config_path=None,
     run_dir = create_run_directory(merged["output_dir"], mod.name)
     suffix = ".pkl" if getattr(mod, "model_type", "keras") == "estimator" else ".keras"
     model_path = run_dir / ("model" + suffix)
+    progress = TrainingProgress(merged.get("preprocessing_steps", []), save_model=True,
+                                reports=True, verbose=train_kwargs.get("verbose", 1))
     _write_json(run_dir / "config.json", merged)
     try:
-        fitted, results = train(mod, config=merged, save_path=model_path, **train_kwargs)
+        fitted, results = train(mod, config=merged, save_path=model_path,
+                                _progress=progress, **train_kwargs)
+        progress.stage("Writing run records and diagnostic plots")
         resolved = results["config"]
         _write_json(run_dir / "config.json", resolved)
         _write_json(run_dir / "run.json", {"model": mod.name, "model_file": model_path.name})
@@ -146,10 +107,16 @@ def run_training(model="clstm_decoder", *, config=None, config_path=None,
         if history is not None:
             _write_json(run_dir / "history.json", history.history)
         _plots(run_dir, results, [item["name"] for item in metrics["per_dof"]])
+        performance_path = write_performance_report(
+            run_dir, fitted, mod.name, getattr(mod, "model_type", "keras"),
+            results, metrics, model_path,
+        )
     except Exception as exc:
         _write_json(run_dir / "failure.json", {"error": type(exc).__name__, "message": str(exc)})
         raise
-    results.update(run_dir=run_dir, model_path=model_path, metrics=metrics)
-    print(f"Run saved to: {run_dir}")
-    print(f"Test RMSE: {metrics['aggregate']['rmse']:.6f}")
+    results.update(run_dir=run_dir, model_path=model_path, metrics=metrics,
+                   performance_path=performance_path)
+    progress.message(f"Run saved to: {run_dir}")
+    progress.message(f"Performance report: {performance_path}")
+    progress.message(f"Test RMSE: {metrics['aggregate']['rmse']:.6f}")
     return fitted, results

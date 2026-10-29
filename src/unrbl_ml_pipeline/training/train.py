@@ -11,6 +11,7 @@ import keras
 import numpy as np
 
 from .config import resolve_config
+from .progress import TrainingProgress
 
 
 def train(
@@ -95,12 +96,18 @@ def train(
     if "learning_rate" in fit_kwargs:
         merged["learning_rate"] = fit_kwargs.pop("learning_rate")
     _validate_pipeline_config(merged, model_type)
+    progress = fit_kwargs.pop("_progress", None)
+    if progress is None:
+        progress = TrainingProgress(merged["preprocessing_steps"],
+                                    save_model=save_path is not None,
+                                    verbose=fit_kwargs.get("verbose", 1))
+    progress.device(model_type)
     keras.utils.set_random_seed(merged.get("split", {}).get("random_state", 42))
     if model_type == "estimator":
-        return _train_estimator(mod, merged, save_path=save_path)
+        return _train_estimator(mod, merged, progress, save_path=save_path)
 
     return _train_with_preprocessing(
-        mod, merged, save_path=save_path,
+        mod, merged, progress, save_path=save_path,
         extra_callbacks=callbacks, metrics=metrics, **fit_kwargs,
     )
 
@@ -179,7 +186,7 @@ def _train_simple(
     return keras_model, history
 
 
-def _train_with_preprocessing(mod, config, save_path=None,
+def _train_with_preprocessing(mod, config, progress, save_path=None,
                               extra_callbacks=None, metrics=None, **fit_kwargs):
     """Preprocessing pipeline path for keras models."""
     from .batching import batched_dataset
@@ -188,11 +195,8 @@ def _train_with_preprocessing(mod, config, save_path=None,
     from .preprocessing import run_pipeline
 
     steps = config["preprocessing_steps"]
-    state = run_pipeline(steps, config)
+    state = run_pipeline(steps, config, progress=progress)
     _validate_splits(state, windowed=True)
-    if fit_kwargs.get("verbose", 1):
-        print(f"Selected {len(state.files)} recordings; windows: "
-              f"train={len(state.X_train)}, val={len(state.X_val)}, test={len(state.X_test)}")
 
     norm_stats = state.norm_stats
     build_kwargs = dict(config)
@@ -204,9 +208,12 @@ def _train_with_preprocessing(mod, config, save_path=None,
     else:
         raise ValueError("Preprocessing pipeline produced no training data.")
 
+    progress.stage(f"Building {mod.name} model")
     keras_model = mod.build(
         input_shape, num_classes, norm_stats=norm_stats, **build_kwargs,
     )
+    if progress.enabled:
+        keras_model.summary()
 
     loss_cfg = config.get("loss", {"type": "mse"})
     loss_type = loss_cfg.get("type", "mse")
@@ -255,6 +262,7 @@ def _train_with_preprocessing(mod, config, save_path=None,
         val_data = batched_dataset(
             state.X_val, state.Y_val, batch_size=batch_size,
         )
+    progress.stage("Training")
     history = keras_model.fit(
         train_data,
         epochs=config.get("epochs", 200),
@@ -264,10 +272,13 @@ def _train_with_preprocessing(mod, config, save_path=None,
     )
 
     if save_path is not None:
+        progress.stage("Saving model")
+        progress.message(f"  {save_path}")
         keras_model.save(save_path)
 
     results = {"history": history, "state": state, "config": config}
 
+    progress.stage("Evaluating on held-out test split")
     if state.X_test is not None and state.X_test.shape[0] > 0:
         Y_pred = keras_model.predict(
             batched_dataset(state.X_test, batch_size=batch_size), verbose=0,
@@ -287,17 +298,19 @@ def _train_with_preprocessing(mod, config, save_path=None,
     return keras_model, results
 
 
-def _train_estimator(mod, config, save_path=None):
+def _train_estimator(mod, config, progress, save_path=None):
     """Estimator path for non-Keras models (KF, sklearn, etc.)."""
     from .postprocessing import apply_postprocessing
     from .preprocessing import run_pipeline
 
     steps = config.get("preprocessing_steps", [])
-    state = run_pipeline(steps, config) if steps else None
+    state = run_pipeline(steps, config, progress=progress) if steps else None
     _validate_splits(state, windowed=False)
 
+    progress.stage(f"Building {mod.name} estimator")
     estimator_cls = mod.build(**config)
 
+    progress.stage("Training")
     if state is not None and state.train_files:
         if hasattr(estimator_cls, "fit_multi_file"):
             fitted = estimator_cls.fit_multi_file(state.train_files)
@@ -317,10 +330,13 @@ def _train_estimator(mod, config, save_path=None):
         raise ValueError("No training data available for estimator.")
 
     if save_path is not None:
+        progress.stage("Saving model")
+        progress.message(f"  {save_path}")
         fitted.save(save_path)
 
     results = {"state": state, "config": config}
 
+    progress.stage("Evaluating on held-out test split")
     if state is not None and state.test_files:
         test_kin = np.concatenate(
             [f.kinematics for f in state.test_files], axis=0,

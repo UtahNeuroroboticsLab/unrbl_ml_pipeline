@@ -45,6 +45,7 @@ class PipelineState:
     files: list[Any] = field(default_factory=list)
     rejected: list[Any] = field(default_factory=list)
     selection_report: list[dict[str, Any]] = field(default_factory=list)
+    progress: Any = field(default=None, repr=False, compare=False)
 
     # After splitting
     train_files: list[Any] = field(default_factory=list)

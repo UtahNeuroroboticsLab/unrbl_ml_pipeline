@@ -269,6 +269,13 @@ are shuffled, with one batch prefetched. This avoids placing entire windowed spl
 the GPU; `--batch-size` controls the transfer size as well as the optimizer batch size.
 The complete windowed dataset still needs to fit in system RAM.
 
+Training prints numbered stage headings and a file-by-file quality readout, for example
+`[KEEP   score=0.362] ... T=2453` or `[REJECT score=0.149 < 0.2] ...`. Date exclusions
+and unreadable files print `[SKIP]` with the reason. Paths are relative to the data
+directory so files in different movement folders are distinguishable. Stage counts
+follow the chosen preprocessing steps and include saving and reporting when requested.
+Pass `verbose=0` to `train()` or `run_training()` to silence these messages and epochs.
+
 ### Configuration and selection
 
 Configuration precedence is model defaults, JSONC, Python overrides, then explicit CLI
@@ -349,10 +356,20 @@ The wrapper creates a unique UTC-stamped directory for each run:
 | `selection.json` | Matched paths, dates, scores, exclusions, load errors, split membership |
 | `splits.json` | Segment paths, trial IDs, sample counts, and available split metadata |
 | `history.json`, `loss.png` | Neural training and validation history |
-| `metrics.json` | Aggregate and per-DOF MSE, RMSE, MAE; also raw prediction metrics |
+| `metrics.json` | Aggregate and per-DOF errors, R², correlation; also raw prediction metrics |
 | `predictions.png` | Grayscale held-out targets/predictions with gaps at segment boundaries |
+| `performance.md` | Readable data/split summary, metrics, model details, source ranges, and embedded plots |
+| `predictions_scatter.png` | Predictions versus targets with a perfect-agreement reference line |
+| `spotlight_metrics.json`, `spotlight_predictions.png` | One test recording's held-out segments, using the same output processing |
 
 Prediction plots subsample long traces for readability; metrics use every test sample.
+`performance.md` follows the TrueFaith readout and links to artifacts that exist in the
+run directory. It distinguishes unique recordings from split segments, and the mean of
+per-DOF RMSEs from overall RMSE. Undefined R² or correlation for constant signals is
+`null` in JSON and `N/A` in the report. Mean correlation excludes undefined DOFs.
+The spotlight selects the first test-recording path in sorted order and reuses its
+held-out predictions; it does not run a separate whole-file evaluation. The report
+path is returned as `results["performance_path"]`.
 Estimator runs omit epoch history and loss curves. `testfile_train_api.py` saves only the
 model and prints result summaries. It shows where to obtain the data for your own plots.
 The wrapper records failures in `failure.json` and re-raises the error.

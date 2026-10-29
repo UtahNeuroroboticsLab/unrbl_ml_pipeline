@@ -10,7 +10,7 @@ no output thresholding.
 """
 
 name = "caleb_decoder"
-description = "LSTM decoder from Vu et al. EMBC 2021 (PMC12742979)"
+description = "LSTM decoder from Thomson et al. EMBC 2021"
 paper = "https://pmc.ncbi.nlm.nih.gov/articles/PMC12742979/"
 model_type = "keras"
 

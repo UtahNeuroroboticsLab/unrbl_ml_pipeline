@@ -1,9 +1,11 @@
 """KDF selection, configuration, direct training, and recorded-run integration."""
 import importlib.util
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import unquote
 
 import numpy as np
 import pytest
@@ -174,7 +176,7 @@ def test_unsupported_configs_fail_before_loading(override, message):
 
 def test_empty_validation_split_is_actionable(monkeypatch, recordings):
     from unrbl_ml_pipeline.training import preprocessing
-    monkeypatch.setattr(preprocessing, "run_pipeline", lambda *a: PipelineState(X_train=np.ones((2, 3, 4))))
+    monkeypatch.setattr(preprocessing, "run_pipeline", lambda *a, **kw: PipelineState(X_train=np.ones((2, 3, 4))))
     with pytest.raises(ValueError, match="empty val"):
         train("clstm_decoder", config=small_config(recordings))
 
@@ -191,7 +193,16 @@ def test_clstm_run_reload_and_artifacts(recordings, tmp_path):
     assert cfg["epochs"] == 3
     run_dir = result["run_dir"]
     assert {"model.keras", "config.json", "selection.json", "splits.json", "history.json",
-            "metrics.json", "run.json", "loss.png", "predictions.png"} <= {p.name for p in run_dir.iterdir()}
+            "metrics.json", "run.json", "loss.png", "predictions.png", "performance.md",
+            "predictions_scatter.png", "spotlight_predictions.png", "spotlight_metrics.json"} <= {p.name for p in run_dir.iterdir()}
+    report = result["performance_path"].read_text()
+    assert "| DOF | RMSE | MAE | R² | Corr |" in report
+    assert "## Spotlight file" in report
+    assert "## Predictions plot sources" in report
+    assert "raw model predictions" in report
+    assert "\u2014" not in report and "\u2013" not in report
+    for target in re.findall(r"!?\[[^\]]*\]\(([^)]+)\)", report):
+        assert (run_dir / unquote(target)).is_file(), target
     restored = keras.saving.load_model(result["model_path"])
     x = result["state"].X_test[:4]
     np.testing.assert_allclose(fitted(x).numpy(), restored(x).numpy(), atol=1e-6)
@@ -223,11 +234,16 @@ def test_caleb_direct_train_and_reload(recordings, tmp_path):
 
 def test_kalman_run_without_loss_plot(recordings, tmp_path):
     cfg = {"data": {"base_dir": str(recordings)},
-           "postprocessing": {"deadband": {"enabled": False}}}
+           "postprocessing": {"deadband": {"enabled": True, "threshold": 0.04}}}
     fitted, results = run_training("kf_decoder", config=cfg, output_dir=tmp_path / "outputs")
     assert "history" not in results
     assert (results["run_dir"] / "model.pkl").is_file()
     assert not (results["run_dir"] / "loss.png").exists()
+    report = results["performance_path"].read_text()
+    assert "KalmanFilterDecoder" in report
+    assert "### Training history" not in report
+    assert "postprocessed predictions" in report
+    assert "### Raw metrics before external postprocessing" in report
     from unrbl_ml_pipeline.training.kalman import KalmanFilterDecoder
     loaded = KalmanFilterDecoder.load(results["model_path"])
     features = results["state"].test_files[0].features

@@ -182,9 +182,13 @@ def run(state, config):
         state.selection_report.append(record)
         if (start or end) and day is None:
             record.update(status="excluded", reason="Missing or invalid recording timestamp")
+            if state.progress is not None:
+                state.progress.file(p, config, decision="SKIP", reason=record["reason"])
             continue
         if (start and day < start) or (end and day > end):
             record.update(status="excluded", reason="Outside recording-date range")
+            if state.progress is not None:
+                state.progress.file(p, config, decision="SKIP", reason=record["reason"])
             continue
         try:
             f = load_one_kdf(p, kinematic_column_indices=kin_cols)
@@ -194,6 +198,8 @@ def run(state, config):
         except (OSError, ValueError, IndexError) as e:
             state.rejected.append((p, str(e)))
             record.update(status="load_error", reason=str(e))
+            if state.progress is not None:
+                state.progress.file(p, config, decision="SKIP", reason=f"failed to parse ({e})")
 
     if not files:
         raise ValueError("No usable KDF files remain after date filtering and loading; inspect dates and KDF contents.")

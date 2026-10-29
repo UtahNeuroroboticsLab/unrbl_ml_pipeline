@@ -26,7 +26,7 @@ def list_steps():
             if callable(getattr(importlib.import_module("." + name, __package__), "run", None))]
 
 
-def run_pipeline(steps, config, state=None):
+def run_pipeline(steps, config, state=None, progress=None):
     """Execute an ordered list of preprocessing step names.
 
     Parameters
@@ -37,6 +37,8 @@ def run_pipeline(steps, config, state=None):
         Full merged model config (each step reads the keys it needs).
     state : PipelineState, optional
         Initial state; a fresh one is created if not provided.
+    progress : TrainingProgress, optional
+        Shared console reporter; omitted for silent standalone preprocessing.
 
     Returns
     -------
@@ -46,6 +48,8 @@ def run_pipeline(steps, config, state=None):
     from ._types import PipelineState
     if state is None:
         state = PipelineState()
+    if progress is not None:
+        state.progress = progress
     if not steps:
         raise ValueError("preprocessing_steps must contain an ordered list of step names")
     for step_name in steps:
@@ -54,7 +58,11 @@ def run_pipeline(steps, config, state=None):
         mod = importlib.import_module("." + step_name, __package__)
         if not callable(getattr(mod, "run", None)):
             raise TypeError(f"{step_name!r} is not a runnable preprocessing step")
+        if state.progress is not None:
+            state.progress.preprocessing_stage(step_name, config)
         state = mod.run(state, config)
+        if state.progress is not None:
+            state.progress.preprocessing_result(step_name, state)
     for record in state.selection_report:
         record["splits"] = [
             name for name in ("train", "val", "test")
