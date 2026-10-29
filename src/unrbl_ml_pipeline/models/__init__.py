@@ -18,6 +18,7 @@ importing this package never pulls in TensorFlow.
 
 import importlib
 
+# YOU NEED TO MANUALLY UPDATE THESE IF YOU MAKE A NEW MODEL FILE HERE
 _REGISTRY = {
     "examplemodel": "examplemodel",
 }
