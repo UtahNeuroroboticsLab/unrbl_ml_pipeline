@@ -1,5 +1,8 @@
 """Training stack. Requires Python 3.10-3.13 (where TensorFlow has wheels).
 
+Author: Leonardo M. Ferrisi
+Date: 2026-07-16
+
 This subpackage is the 3.7 boundary. The directory IS the Python-version line:
 
   - Modules **here** may import tensorflow/keras/sklearn/matplotlib at module level.
@@ -23,3 +26,5 @@ except ImportError:
         f"3.10-3.13 (running {sys.version_info[0]}.{sys.version_info[1]}). Train on an interpreter in that range, convert to "
         ".tflite, and deploy that."
     )
+
+from unrbl_ml_pipeline.training.train import train  # noqa: F401

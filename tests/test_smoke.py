@@ -1,3 +1,9 @@
+"""Smoke test for package version.
+
+Author: Leonardo M. Ferrisi
+Date: 2026-07-16
+"""
+
 import unrbl_ml_pipeline
 
 

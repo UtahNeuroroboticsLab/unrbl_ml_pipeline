@@ -6,6 +6,9 @@ Root module: must import on a 3.7 install (numpy + tflite_runtime, no TF) and st
 Backends are imported lazily *inside* each branch on purpose. Which one exists depends on the
 interpreter -- pyproject's markers install tensorflow on 3.10-3.13 and the lab's TFLite 2.5.0
 build on 3.7 -- and `import unrbl_ml_pipeline` must not drag either one in.
+
+Author: Leonardo M. Ferrisi
+Date: 2026-07-16
 """
 
 import os

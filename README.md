@@ -225,3 +225,7 @@ Models:
 Automated QA
 - [x] `.github/workflows/qa.yml` - ruff + pytest on 3.11-3.13 and a real i686 Python 3.7 job
 - [x] `.github/workflows/publish.yml` - tag-triggered PyPI release via trusted publishing
+
+## TODOs:
+
+- [ ] Add method for adding non-neural network model file like kalman filter

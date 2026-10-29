@@ -52,6 +52,7 @@ dependencies = [
     "matplotlib;           python_version >= '3.10' and python_version < '3.14'",
     "unrbl-tflite-runtime; python_version <  '3.8'",
     "tensorflow[and-cuda]>=2.11.1",
+    "ipython>=7.34.0",
 ]
 
 [project.optional-dependencies]

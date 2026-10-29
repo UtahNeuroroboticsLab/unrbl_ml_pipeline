@@ -1,5 +1,8 @@
 """End-to-end check: load a .tflite through load_model(), run it, assert on the result.
 
+Author: Leonardo M. Ferrisi
+Date: 2026-07-16
+
 Runs real inference rather than just importing. An import-only check passes even when the
 interpreter cannot execute a graph -- which is the failure that would actually matter on the
 Summit, and the one thing a bad interpreter build could plausibly break.

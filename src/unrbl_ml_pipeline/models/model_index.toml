@@ -1,0 +1,42 @@
+# Model catalog for unrbl_ml_pipeline.
+# This file is documentation -- the Python registry in __init__.py is the source of truth.
+# Add an entry here when you add a model file.
+
+[examplemodel]
+description = "Simple dense network for testing and as a model-file template"
+status = "implemented"
+
+[alexnet]
+description = "AlexNet-style CNN adapted for Prosthesis control from iEMG data"
+paper = "Krizhevsky et al., 2012"
+status = "planned"
+
+[resnet]
+description = "ResNet-style CNN adapted for Prosthesis control from iEMG data"
+paper = "need to add"
+status = "planned"
+
+[lstm]
+description = "LSTM network for sequential EMG data"
+paper = "tbd"
+status = "planned"
+
+[clstm]
+description = "Convolutional LSTM hybrid"
+paper = "Ferrisi (in the works...)"
+status = "planned"
+
+[mamba]
+description = "state space model with possible advantages for Prosthesis control"
+paper = "Ferrisi (in the works...)"
+status = "planned"
+
+[george2018]
+description = "CNN from George et al. EMBC 2018"
+paper = "https://ieeexplore.ieee.org/document/8513342"
+status = "planned"
+
+[thomson_lstm]
+description = "LSTM from Thomson et al."
+paper = "https://pmc.ncbi.nlm.nih.gov/articles/PMC12742979/"
+status = "planned"

@@ -1,5 +1,8 @@
 """Post-install sanity check: the package imports, TF imports, and (if present) the GPU computes.
 
+Author: Leonardo M. Ferrisi
+Date: 2026-10-29
+
 Hard failure (exit 1): unrbl_ml_pipeline or tensorflow does not import.
 Soft warning (exit 0): no GPU visible - CPU-only is a valid dev setup.
 """
