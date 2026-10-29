@@ -15,7 +15,7 @@ TFLITE_SUFFIX = ".tflite"
 KERAS_SUFFIX = ".keras"
 
 
-def load_model(path):
+def load_model_file(path):
     """Load a .tflite or .keras model and return the backend's native object.
 
     ponytail: returns the raw interpreter/model, not a wrapper. A unified predict() has to

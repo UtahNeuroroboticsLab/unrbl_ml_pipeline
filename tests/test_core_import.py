@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from unrbl_ml_pipeline.inference import load_model
+from unrbl_ml_pipeline.inference import load_model_file
 
 
 def test_core_import_does_not_pull_tensorflow():
@@ -29,4 +29,4 @@ def test_core_import_does_not_pull_tensorflow():
 
 def test_load_model_rejects_unknown_suffix():
     with pytest.raises(ValueError):
-        load_model("model.h5")
+        load_model_file("model.h5")

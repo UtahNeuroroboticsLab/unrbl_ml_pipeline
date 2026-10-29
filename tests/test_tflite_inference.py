@@ -19,7 +19,7 @@ from importlib.util import find_spec
 import numpy as np
 import pytest
 
-from unrbl_ml_pipeline.inference import load_model
+from unrbl_ml_pipeline.inference import load_model_file
 
 MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "toy_model.tflite")
 
@@ -42,7 +42,7 @@ pytestmark = [
 
 
 def test_tflite_roundtrip():
-    interpreter = load_model(MODEL)
+    interpreter = load_model_file(MODEL)
 
     # load_model returns the raw interpreter, already allocated -- see its ponytail note.
     input_details = interpreter.get_input_details()
