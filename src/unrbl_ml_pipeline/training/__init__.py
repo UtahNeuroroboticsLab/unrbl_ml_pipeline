@@ -27,4 +27,6 @@ except ImportError:
         ".tflite, and deploy that."
     )
 
+from unrbl_ml_pipeline.training.config import load_jsonc, resolve_config  # noqa: F401
+from unrbl_ml_pipeline.training.estimator import Estimator  # noqa: F401
 from unrbl_ml_pipeline.training.train import train  # noqa: F401

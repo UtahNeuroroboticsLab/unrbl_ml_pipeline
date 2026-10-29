@@ -21,6 +21,11 @@ import importlib
 # YOU NEED TO MANUALLY UPDATE THESE IF YOU MAKE A NEW MODEL FILE HERE
 _REGISTRY = {
     "examplemodel": "examplemodel",
+    "caleb_decoder": "caleb_decoder",
+    "resnet50_decoder": "resnet50_decoder",
+    "clstm_decoder": "clstm_decoder",
+    "clstm_kalman": "clstm_kalman",
+    "kf_decoder": "kf_decoder",
 }
 
 
@@ -44,6 +49,24 @@ def get(name):
             f"{name} is not a registered model. Available: {available}"
         )
     return importlib.import_module("." + _REGISTRY[key], __package__)
+
+
+def get_model_type(name):
+    """Return the ``model_type`` string for a registered model.
+
+    Defaults to ``"keras"`` if the module does not declare one.
+    """
+    mod = get(name)
+    return getattr(mod, "model_type", "keras")
+
+
+def get_default_config(name):
+    """Return the ``default_config`` dict for a registered model.
+
+    Returns ``{}`` if the module does not declare one.
+    """
+    mod = get(name)
+    return dict(getattr(mod, "default_config", None) or {})
 
 
 def __getattr__(name):

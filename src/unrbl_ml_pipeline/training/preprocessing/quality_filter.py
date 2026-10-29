@@ -1,0 +1,56 @@
+"""Preprocessing step: filter loaded KDF files by correlation quality score.
+
+Author: Leonardo M. Ferrisi
+Date: 2026-10-29
+"""
+from __future__ import annotations
+
+import numpy as np
+
+
+def correlation_quality_score(features, kinematics):
+    """Per-file data quality: mean best |Pearson r| across kinematic DOFs.
+
+    Returns ``(score, per_dof_best_r)``.
+    """
+    n_dofs = kinematics.shape[1]
+    best_r = np.zeros(n_dofs)
+    feat_std = features.std(axis=0)
+    valid_feat_cols = np.where(feat_std > 1e-8)[0]
+    for d in range(n_dofs):
+        y = kinematics[:, d]
+        if y.std() < 1e-8 or valid_feat_cols.size == 0:
+            best_r[d] = 0.0
+            continue
+        x = features[:, valid_feat_cols]
+        x_c = x - x.mean(axis=0, keepdims=True)
+        y_c = y - y.mean()
+        num = x_c.T @ y_c
+        denom = np.sqrt((x_c ** 2).sum(axis=0)) * np.sqrt((y_c ** 2).sum())
+        denom[denom < 1e-12] = np.nan
+        r = num / denom
+        best_r[d] = np.nanmax(np.abs(r)) if np.isfinite(r).any() else 0.0
+    return float(np.mean(best_r)), best_r
+
+
+def run(state, config):
+    """Keep only files whose quality score >= ``data.beta_threshold``.
+
+    Config keys used:
+        data.beta_threshold  — minimum score (default 0.0, i.e. keep all)
+    """
+    beta = float(config.get("data", {}).get("beta_threshold", 0.0))
+    kept = []
+    for f in state.files:
+        score, _ = correlation_quality_score(f.features, f.kinematics)
+        if score >= beta:
+            kept.append(f)
+        else:
+            state.rejected.append(f)
+    state.files = kept
+    if not kept:
+        raise RuntimeError(
+            "Every candidate .kdf file was rejected by the quality filter "
+            f"(beta_threshold={beta:.3f}). Lower data.beta_threshold or inspect data."
+        )
+    return state

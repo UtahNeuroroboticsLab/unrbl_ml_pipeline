@@ -49,6 +49,7 @@ dependencies = [
     "numpy>=1.21",
     "tensorflow>=2.16;     python_version >= '3.10' and python_version < '3.14'",
     "scikit-learn;         python_version >= '3.10' and python_version < '3.14'",
+    "scipy;                python_version >= '3.10' and python_version < '3.14'",
     "matplotlib;           python_version >= '3.10' and python_version < '3.14'",
     "unrbl-tflite-runtime; python_version <  '3.8'",
     "tensorflow[and-cuda]>=2.11.1",
@@ -60,6 +61,9 @@ dev = ["pytest", "ruff", "build"]
 # CUDA wheels for TF (linux only; same 3.10-3.13 window as the core TF marker, see the
 # <'3.14' note above). Opt-in so the Summit and CPU-only installs never pull ~GBs of nvidia-*.
 cuda = ["tensorflow[and-cuda]>=2.16; python_version >= '3.10' and python_version < '3.14' and sys_platform == 'linux'"]
+
+[project.scripts]
+unrbl-train = "unrbl_ml_pipeline.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/UtahNeuroroboticsLab/unrbl_ml_pipeline"
