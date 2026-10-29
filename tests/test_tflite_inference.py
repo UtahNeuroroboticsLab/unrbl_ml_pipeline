@@ -13,6 +13,7 @@ Must stay 3.7-syntax-clean: it runs on the Summit's interpreter in CI.
 """
 
 import os
+import sys
 from importlib.util import find_spec
 
 import numpy as np
@@ -30,10 +31,14 @@ _HAS_INTERPRETER = find_spec("tflite_runtime") is not None or find_spec("tensorf
 # marker gaps at 3.8/3.9 and 3.14+ (see pyproject.toml). Every interpreter CI actually runs --
 # 3.7 i686 and 3.11-3.13 -- has one, so this never skips in CI. If it ever does, the markers
 # regressed and that is the bug, not this test.
-pytestmark = pytest.mark.skipif(
-    not _HAS_INTERPRETER,
-    reason="no TFLite interpreter on this Python (marker gap: 3.8/3.9 or 3.14+)",
-)
+pytestmark = [
+    # Only the Summit's 3.7 needs this to work; dev machines (3.10+) skip it.
+    pytest.mark.skipif(sys.version_info >= (3, 8), reason="TFLite inference is only required on Python 3.7"),
+    pytest.mark.skipif(
+        not _HAS_INTERPRETER,
+        reason="no TFLite interpreter on this Python (marker gap: 3.8/3.9 or 3.14+)",
+    ),
+]
 
 
 def test_tflite_roundtrip():
@@ -47,7 +52,8 @@ def test_tflite_roundtrip():
     interpreter.invoke()
     prediction = interpreter.get_tensor(output_details[0]["index"])
 
-    assert prediction.shape == (1, 1), "unexpected output shape: %r" % (prediction.shape,)
+    assert prediction.shape == (1, 1), f"unexpected output shape: {prediction.shape!r}"
+    
     # The toy model is a single dense layer trained to approximate X -> 3X, so it lands near
     # 30.0 rather than on it.
-    assert abs(prediction[0][0] - 30.0) < 0.5, "expected ~30.0, got %r" % (prediction[0][0],)
+    assert abs(prediction[0][0] - 30.0) < 0.5, f"expected ~30.0, got {prediction[0][0]!r}"

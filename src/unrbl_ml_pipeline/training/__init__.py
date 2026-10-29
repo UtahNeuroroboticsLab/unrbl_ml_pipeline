@@ -20,7 +20,6 @@ except ImportError:
     # and 3.14+ marker gaps, or on a --no-deps install. Say the unfixable part plainly: on 3.7
     # no pip command puts TF here, and on 3.14 none exists yet.
     raise ImportError(
-        "unrbl_ml_pipeline.training needs TensorFlow, which ships wheels only for Python "
-        "3.10-3.13 (running {}.{}). Train on an interpreter in that range, convert to "
-        ".tflite, and deploy that.".format(sys.version_info[0], sys.version_info[1])
+        f"3.10-3.13 (running {sys.version_info[0]}.{sys.version_info[1]}). Train on an interpreter in that range, convert to "
+        ".tflite, and deploy that."
     )

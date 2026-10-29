@@ -27,11 +27,7 @@ def load_model(path):
         return _load_tflite(path)
     if suffix == KERAS_SUFFIX:
         return _load_keras(path)
-    raise ValueError(
-        "Unsupported model format {!r}: expected {} or {}".format(
-            suffix, TFLITE_SUFFIX, KERAS_SUFFIX
-        )
-    )
+    raise ValueError(f"Unsupported model format {suffix!r}: expected {TFLITE_SUFFIX} or {KERAS_SUFFIX}")
 
 
 def _load_tflite(path):
@@ -46,12 +42,10 @@ def _load_tflite(path):
             # either a marker gap (3.8/3.9, or 3.14+ where TF has no wheel) or an environment
             # assembled some other way (--no-deps, a stripped venv).
             raise ImportError(
-                "Loading {} needs a TFLite interpreter, and neither tflite_runtime nor "
+                f"Loading {TFLITE_SUFFIX} needs a TFLite interpreter, and neither tflite_runtime nor "
                 "tensorflow is installed. `pip install unrbl-ml-pipeline` provides one on "
                 "Python 3.7 (unrbl-tflite-runtime) and on 3.10-3.13 (tensorflow), but not on "
-                "3.8/3.9 or 3.14+ (running {}.{}) -- TensorFlow has no wheels there.".format(
-                    TFLITE_SUFFIX, sys.version_info[0], sys.version_info[1]
-                )
+                f"3.8/3.9 or 3.14+ (running {sys.version_info[0]}.{sys.version_info[1]}) -- TensorFlow has no wheels there."
             )
     interpreter = Interpreter(model_path=str(path))
     interpreter.allocate_tensors()
@@ -63,23 +57,15 @@ def _load_keras(path):
     # keras", which would imply the problem is fixable with pip. It is not.
     if sys.version_info < (3, 11):
         raise RuntimeError(
-            "The {} format requires Keras 3, which needs Python >=3.11 (running {}.{}). "
-            "This machine cannot load {} at any version. Convert the model to {} on a modern "
-            "machine and deploy that instead.".format(
-                KERAS_SUFFIX,
-                sys.version_info[0],
-                sys.version_info[1],
-                KERAS_SUFFIX,
-                TFLITE_SUFFIX,
-            )
+            f"The {KERAS_SUFFIX} format requires Keras 3, which needs Python >=3.11 (running {sys.version_info[0]}.{sys.version_info[1]}). "
+            f"This machine cannot load {KERAS_SUFFIX} at any version. Convert the model to {TFLITE_SUFFIX} on a modern "
+            "machine and deploy that instead."
         )
     try:
         import keras
     except ImportError:
         raise ImportError(
-            "Loading {} needs Keras, which a normal `pip install unrbl-ml-pipeline` brings in "
-            "via tensorflow on this interpreter. Reinstall without --no-deps.".format(
-                KERAS_SUFFIX
-            )
+            f"Loading {KERAS_SUFFIX} needs Keras, which a normal `pip install unrbl-ml-pipeline` brings in "
+            "via tensorflow on this interpreter. Reinstall without --no-deps."
         )
     return keras.saving.load_model(path)

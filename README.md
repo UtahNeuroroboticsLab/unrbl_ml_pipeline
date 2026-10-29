@@ -146,6 +146,14 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -e ".[dev]"                             # use Python 3.11-3.13; pulls TF
 ```
 
+With [uv](https://docs.astral.sh/uv/), one command builds `.venv` (Python 3.12), installs the dev
+tools plus `tensorflow[and-cuda]` (falling back to CPU TF if that fails), and runs a check that
+imports everything and does a matmul on the GPU:
+
+```bash
+./scripts/setup_dev.sh
+```
+
 **Use 3.11–3.13, not 3.14.** TensorFlow has no cp314 wheel, so a 3.14 dev install resolves to numpy
 only and `test_tflite_inference.py` skips - you would be running a suite that cannot exercise
 `load_model()` at all.
