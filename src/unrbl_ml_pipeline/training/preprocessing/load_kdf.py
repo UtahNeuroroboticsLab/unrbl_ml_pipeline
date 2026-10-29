@@ -6,8 +6,10 @@ Date: 2026-10-29
 from __future__ import annotations
 
 import glob as glob_mod
+import logging
 import os
 import re
+from datetime import date, datetime
 
 import numpy as np
 
@@ -61,7 +63,8 @@ def parse_kef(path):
                 trial_ts=_parse_scalar(trial.group(1)),
                 mvnt_mat=_matlab_array(mvnt.group(1)),
             ))
-        except Exception:
+        except (ValueError, IndexError) as exc:
+            logging.getLogger(__name__).warning("Skipping malformed KEF event in %s: %s", path, exc)
             continue
     return trials
 
@@ -84,7 +87,13 @@ def read_kdf_cob(path):
     """Read a COB-variant .kdf. Returns (features [T,F], kinematics [T,K], nip_time [T])."""
     with open(path, "rb") as f:
         raw = np.fromfile(f, dtype="<f4")
+    if raw.size < 3 or not np.isfinite(raw[:3]).all():
+        raise ValueError(f"{path}: missing or invalid KDF header")
+    if not np.equal(raw[:3], np.floor(raw[:3])).all():
+        raise ValueError(f"{path}: KDF header dimensions must be integers")
     _n_nip, n_feat, n_kin = raw[0:3].astype(int)
+    if _n_nip != 1 or n_feat < 1 or n_kin < 1:
+        raise ValueError(f"{path}: expected one timestamp and positive feature/target dimensions")
     header_len = 3
     n_rows = 1 + n_feat + n_kin
     n_cols = (raw.size - header_len) // n_rows
@@ -121,6 +130,27 @@ def find_kdf_files(glob_pattern, base_dir=None):
 
 # --- Step entry point ---
 
+def recording_date(path):
+    """Return the date in a trainKDF timestamp, including prefixed filenames."""
+    match = re.search(r"trainKDF_(\d{8}-\d{6})(?=\.kdf$)", os.path.basename(path), re.IGNORECASE)
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y%m%d-%H%M%S").date()
+        except ValueError:
+            pass
+    return None
+
+
+def _date_bound(value, key):
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"data.{key} must use YYYY-MM-DD")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"data.{key} is not a valid date: {value}") from exc
+
 def run(state, config):
     """Load all .kdf files matching the configured glob pattern.
 
@@ -133,6 +163,10 @@ def run(state, config):
     kdf_glob = data_cfg.get("kdf_glob", "**/*.kdf")
     base_dir = data_cfg.get("base_dir", None)
     kin_cols = data_cfg.get("kinematic_column_indices", None)
+    start = _date_bound(data_cfg.get("date_from"), "date_from")
+    end = _date_bound(data_cfg.get("date_to"), "date_to")
+    if start and end and start > end:
+        raise ValueError("data.date_from must be on or before data.date_to")
 
     paths = find_kdf_files(kdf_glob, base_dir=base_dir)
     if not paths:
@@ -142,10 +176,36 @@ def run(state, config):
 
     files = []
     for p in paths:
+        day = recording_date(p)
+        record = {"path": os.path.abspath(p), "recording_date": day.isoformat() if day else None,
+                  "status": "loaded", "reason": None, "score": None, "splits": []}
+        state.selection_report.append(record)
+        if (start or end) and day is None:
+            record.update(status="excluded", reason="Missing or invalid recording timestamp")
+            continue
+        if (start and day < start) or (end and day > end):
+            record.update(status="excluded", reason="Outside recording-date range")
+            continue
         try:
-            files.append(load_one_kdf(p, kinematic_column_indices=kin_cols))
-        except Exception as e:
+            f = load_one_kdf(p, kinematic_column_indices=kin_cols)
+            if not len(f.features) or not np.isfinite(f.features).all() or not np.isfinite(f.kinematics).all():
+                raise ValueError("Empty recording or non-finite features/targets")
+            files.append(f)
+        except (OSError, ValueError, IndexError) as e:
             state.rejected.append((p, str(e)))
+            record.update(status="load_error", reason=str(e))
+
+    if not files:
+        raise ValueError("No usable KDF files remain after date filtering and loading; inspect dates and KDF contents.")
+    dimensions = {(f.features.shape[1], f.kinematics.shape[1]) for f in files}
+    if len(dimensions) != 1:
+        raise ValueError(f"Incompatible KDF feature/target dimensions: {sorted(dimensions)}")
+    expected = data_cfg.get("num_raw_features")
+    if expected is not None and files[0].features.shape[1] != expected:
+        raise ValueError(f"Expected {expected} features, found {files[0].features.shape[1]}")
+    names = data_cfg.get("dof_names")
+    if names is not None and len(names) != files[0].kinematics.shape[1]:
+        raise ValueError("data.dof_names must match the selected kinematic columns")
 
     state.files = files
     return state

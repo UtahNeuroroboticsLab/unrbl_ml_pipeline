@@ -44,6 +44,7 @@ class PipelineState:
     # Raw loaded files (before splitting)
     files: list[Any] = field(default_factory=list)
     rejected: list[Any] = field(default_factory=list)
+    selection_report: list[dict[str, Any]] = field(default_factory=list)
 
     # After splitting
     train_files: list[Any] = field(default_factory=list)

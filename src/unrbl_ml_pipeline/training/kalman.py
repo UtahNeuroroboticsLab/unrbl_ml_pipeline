@@ -34,7 +34,7 @@ def _steady_state_gain(A, C, W, Q):
     try:
         from scipy.linalg import solve_discrete_are
         P = solve_discrete_are(A.T, C.T, W, Q)
-    except Exception:
+    except (ImportError, ValueError, np.linalg.LinAlgError):
         n = A.shape[0]
         P = np.eye(n)
         for _ in range(500):
@@ -145,6 +145,8 @@ class KalmanFilterDecoder(Estimator):
             total_transitions += n_i
             W_resid_chunks.append(x_t.T - A_i @ x_tm1.T)
 
+        if total_transitions == 0:
+            raise ValueError("Kalman training needs a segment with at least three samples")
         A = A_sum / total_transitions
         resid_state = np.concatenate(W_resid_chunks, axis=1)
         W = np.cov(resid_state) + np.eye(n_dofs) * 1e-8

@@ -74,6 +74,10 @@ path = "src/unrbl_ml_pipeline/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/unrbl_ml_pipeline"]
 
+[tool.pytest.ini_options]
+# Dataset directories contain standalone scripts, not package regression tests.
+testpaths = ["tests"]
+
 # this is the enforcement for the 3.7 syntax constraint (no match, no `X | Y`
 # annotations, no dataclass slots). Drop the floor here when the 3.7 machine is retired.
 # ruff is pretty fast: https://docs.astral.sh/ruff/

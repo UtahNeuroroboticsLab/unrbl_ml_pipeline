@@ -1,4 +1,4 @@
-"""End-to-end check: load a .tflite through load_model(), run it, assert on the result.
+"""Load a .tflite through load_model_file(), run it, assert on the result.
 
 Author: Leonardo M. Ferrisi
 Date: 2026-07-16
@@ -10,7 +10,7 @@ Summit, and the one thing a bad interpreter build could plausibly break.
 This test is the whole marker split, observed from the outside. It exercises whichever backend
 the interpreter resolved to and asserts they agree on the answer:
   - on 3.7 (CI's i686 container, and the Summit) -> unrbl-tflite-runtime 2.5.0
-  - on 3.10+                                     -> tensorflow.lite, via load_model's fallback
+  - on newer Python, without that runtime        -> tf.lite.Interpreter
 
 Must stay 3.7-syntax-clean: it runs on the Summit's interpreter in CI.
 """
@@ -30,24 +30,19 @@ MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "toy_model.tfli
 # sys.modules for anything in this session that checks what got imported.
 _HAS_INTERPRETER = find_spec("tflite_runtime") is not None or find_spec("tensorflow") is not None
 
-# Skips only where an interpreter is *impossible*, never where one is merely missing: the
-# marker gaps at 3.8/3.9 and 3.14+ (see pyproject.toml). Every interpreter CI actually runs --
-# 3.7 i686 and 3.11-3.13 -- has one, so this never skips in CI. If it ever does, the markers
-# regressed and that is the bug, not this test.
-pytestmark = [
-    # Only the Summit's 3.7 needs this to work; dev machines (3.10+) skip it.
-    pytest.mark.skipif(sys.version_info >= (3, 8), reason="TFLite inference is only required on Python 3.7"),
-    pytest.mark.skipif(
-        not _HAS_INTERPRETER,
-        reason="no TFLite interpreter on this Python (marker gap: 3.8/3.9 or 3.14+)",
-    ),
-]
+# Newer Python can use TensorFlow without installing the Summit runtime. Skip
+# only if neither backend is installed there. Python 3.7 must have a working
+# interpreter: a missing Summit runtime should fail its deployment/CI check.
+pytestmark = pytest.mark.skipif(
+    sys.version_info[:2] != (3, 7) and not _HAS_INTERPRETER,
+    reason="neither TensorFlow nor tflite_runtime is installed",
+)
 
 
 def test_tflite_roundtrip():
     interpreter = load_model_file(MODEL)
 
-    # load_model returns the raw interpreter, already allocated -- see its ponytail note.
+    # load_model_file returns the raw interpreter, already allocated.
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
 
@@ -56,7 +51,7 @@ def test_tflite_roundtrip():
     prediction = interpreter.get_tensor(output_details[0]["index"])
 
     assert prediction.shape == (1, 1), f"unexpected output shape: {prediction.shape!r}"
-    
+
     # The toy model is a single dense layer trained to approximate X -> 3X, so it lands near
     # 30.0 rather than on it.
     assert abs(prediction[0][0] - 30.0) < 0.5, f"expected ~30.0, got {prediction[0][0]!r}"

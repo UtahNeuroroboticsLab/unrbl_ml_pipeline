@@ -45,8 +45,8 @@ def make_windows(files, window_size, prediction_lag_samples=0):
             "No windows produced -- window_size + prediction_lag_samples "
             "exceeds every file's sample count."
         )
-    X = np.concatenate(X_list, axis=0).astype(np.float32)
-    Y = np.concatenate(Y_list, axis=0).astype(np.float32)
+    X = np.concatenate(X_list, axis=0).astype(np.float32, copy=False)
+    Y = np.concatenate(Y_list, axis=0).astype(np.float32, copy=False)
     trial_id = np.array(trial_list)
     source_file = np.array(source_list)
     return X, Y, trial_id, source_file
@@ -62,6 +62,8 @@ def run(state, config):
     model_cfg = config.get("model", {})
     window_size = int(model_cfg.get("window_size", 50))
     lag = int(model_cfg.get("prediction_lag_samples", 0))
+    if window_size < 1 or lag < 0:
+        raise ValueError("model.window_size must be positive and prediction_lag_samples nonnegative")
 
     for split_name in ("train", "val", "test"):
         files = getattr(state, f"{split_name}_files")

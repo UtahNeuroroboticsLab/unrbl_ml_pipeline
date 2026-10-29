@@ -5,6 +5,8 @@ Date: 2026-10-29
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 
@@ -29,7 +31,7 @@ def correlation_quality_score(features, kinematics):
         denom = np.sqrt((x_c ** 2).sum(axis=0)) * np.sqrt((y_c ** 2).sum())
         denom[denom < 1e-12] = np.nan
         r = num / denom
-        best_r[d] = np.nanmax(np.abs(r)) if np.isfinite(r).any() else 0.0
+        best_r[d] = min(1.0, np.nanmax(np.abs(r))) if np.isfinite(r).any() else 0.0
     return float(np.mean(best_r)), best_r
 
 
@@ -40,9 +42,17 @@ def run(state, config):
         data.beta_threshold  — minimum score (default 0.0, i.e. keep all)
     """
     beta = float(config.get("data", {}).get("beta_threshold", 0.0))
+    if not np.isfinite(beta) or not 0 <= beta <= 1:
+        raise ValueError("data.beta_threshold must be between 0 and 1")
+    records = {r["path"]: r for r in state.selection_report}
     kept = []
     for f in state.files:
-        score, _ = correlation_quality_score(f.features, f.kinematics)
+        score, per_dof = correlation_quality_score(f.features, f.kinematics)
+        record = records.get(os.path.abspath(f.path))
+        if record is not None:
+            record.update(score=score, per_dof_best_r=per_dof.tolist(),
+                          status="kept" if score >= beta else "rejected",
+                          reason=None if score >= beta else f"Score below beta {beta}")
         if score >= beta:
             kept.append(f)
         else:

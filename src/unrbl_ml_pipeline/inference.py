@@ -39,7 +39,7 @@ def _load_tflite(path):
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
         try:
-            from tensorflow.lite import Interpreter
+            import tensorflow as tf
         except ImportError:
             # On 3.7 and 3.10-3.13 the markers guarantee one of these, so getting here means
             # either a marker gap (3.8/3.9, or 3.14+ where TF has no wheel) or an environment
@@ -50,6 +50,9 @@ def _load_tflite(path):
                 "Python 3.7 (unrbl-tflite-runtime) and on 3.10-3.13 (tensorflow), but not on "
                 f"3.8/3.9 or 3.14+ (running {sys.version_info[0]}.{sys.version_info[1]}) -- TensorFlow has no wheels there."
             )
+        # TensorFlow exposes this through its public lazy API; a direct import
+        # from tensorflow.lite is not supported by every installed TF version.
+        Interpreter = tf.lite.Interpreter
     interpreter = Interpreter(model_path=str(path))
     interpreter.allocate_tensors()
     return interpreter

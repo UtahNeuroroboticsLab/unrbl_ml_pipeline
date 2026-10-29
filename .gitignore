@@ -1,5 +1,6 @@
 dist/
 build/
+outputs/
 *.egg-info/
 __pycache__/
 .pytest_cache/
@@ -7,3 +8,5 @@ __pycache__/
 .venv/
 data/*
 context.md
+CLAUDE.md
+AGENTS.md

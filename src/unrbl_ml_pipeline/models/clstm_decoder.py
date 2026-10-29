@@ -24,16 +24,20 @@ default_config = {
         "normalize",
         "window",
     ],
-    "window_size": 10,
-    "beta_threshold": 0.2,
+    "model": {"window_size": 10, "prediction_lag_samples": 0},
+    "stateful": False,
+    "data": {"beta_threshold": 0.2},
     "optimizer": "adam",
     "learning_rate": 0.0001,
     "epochs": 200,
     "batch_size": 128,
-    "loss": {
-        "type": "idle_weighted_mse",
-        "idle_threshold": 0.05,
-        "idle_weight": 5.0,
+    "loss": {"type": "mse"},
+    "split": {
+        "test_size": 0.15, "val_size": 0.15, "random_state": 42,
+        "trial_detection": {
+            "min_trial_len": 10, "min_peak": 0.5, "merge_gap": 0,
+            "active_eps": 1e-9, "non_trial_policy": "train",
+        },
     },
     "early_stopping_patience": 18,
     "reduce_lr_patience": 8,
@@ -44,10 +48,11 @@ default_config = {
         "lstm_units": 128,
         "dense_units": 50,
         "dropout": 0.0,
-        "use_deadband_activation_output": True,
+        "use_deadband_activation_output": False,
     },
     "postprocessing": {
-        "deadband": {"enabled": True, "threshold": 0.04},
+        "deadband": {"enabled": False, "threshold": 0.04},
+        "latching_filter": {"enabled": False},
     },
 }
 
@@ -85,7 +90,7 @@ def build(input_shape, num_classes, norm_stats=None, stateful=False, **config):
     lstm_units = arch.get("lstm_units", 128)
     dense_units = arch.get("dense_units", 50)
     dropout = arch.get("dropout", 0.0)
-    use_deadband = arch.get("use_deadband_activation_output", True)
+    use_deadband = arch.get("use_deadband_activation_output", False)
 
     window_size = input_shape[0] if len(input_shape) >= 2 else input_shape[-1]
     num_features = input_shape[-1]
@@ -101,20 +106,13 @@ def build(input_shape, num_classes, norm_stats=None, stateful=False, **config):
 
     # Frozen normalization baked into the graph
     if norm_stats is not None:
-        try:
-            import tensorflow as tf
-        except ImportError:
-            tf = None
-        if tf is not None:
-            norm = layers.Normalization(axis=-1, name="feature_normalization")
-            norm.mean = tf.constant(norm_stats.feat_mean, dtype=tf.float32)
-            norm.variance = tf.constant(
-                norm_stats.feat_std ** 2, dtype=tf.float32
-            )
-            norm.built = True
-            x = norm(x)
+        x = layers.Normalization(
+            axis=-1,
+            mean=norm_stats.feat_mean.tolist(),
+            variance=(norm_stats.feat_std ** 2).tolist(),
+            name="feature_normalization",
+        )(x)
 
-    # Causal conv front-end
     x = layers.Conv1D(
         filters=conv_filters,
         kernel_size=conv_kernel_size,
@@ -152,27 +150,18 @@ def build(input_shape, num_classes, norm_stats=None, stateful=False, **config):
     )(x)
 
     # De-normalize and optional deadband
-    if norm_stats is not None and tf is not None:
-        kin_mean_t = tf.constant(norm_stats.kin_mean, dtype=tf.float32)
-        kin_std_t = tf.constant(norm_stats.kin_std, dtype=tf.float32)
-        denorm = layers.Lambda(
-            lambda t: t * kin_std_t + kin_mean_t, name="denormalize_output"
-        )(y_norm)
-        if use_deadband:
-            prediction = layers.Lambda(
-                lambda t: _deadband_activation(t, thresh=0.1),
-                name="output_deadband",
-            )(denorm)
-        else:
-            prediction = denorm
-    else:
-        if use_deadband:
-            prediction = layers.Lambda(
-                lambda t: _deadband_activation(t, thresh=0.1),
-                name="output_deadband",
-            )(y_norm)
-        else:
-            prediction = y_norm
+    prediction = y_norm
+    if norm_stats is not None:
+        prediction = layers.Rescaling(
+            scale=norm_stats.kin_std.tolist(),
+            offset=norm_stats.kin_mean.tolist(),
+            name="denormalize_output",
+        )(prediction)
+    if use_deadband:
+        prediction = keras.ops.where(
+            keras.ops.abs(prediction) < 0.1,
+            keras.ops.zeros_like(prediction), prediction,
+        )
 
     if stateful:
         return keras.Model(

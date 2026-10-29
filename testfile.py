@@ -1,57 +1,45 @@
-"""Demo script for the model registry and training API.
+"""Train on local KDFs and save the model, run records, and diagnostic plots.
 
-Author: Leonardo M. Ferrisi
-Date: 2026-10-29
+    python testfile.py
+    python testfile.py --config config_train.jsonc --epochs 1
+    python testfile.py --model caleb_decoder --beta 0.2
 """
+from pathlib import Path
 
-import numpy as np
+from unrbl_ml_pipeline.cli import parse_training_args, show_catalog, training_overrides
 
-from unrbl_ml_pipeline import models
-from unrbl_ml_pipeline.training import train
+HERE = Path(__file__).resolve().parent
+MODEL = "clstm_decoder"
 
-# --- Explore the registry ---
-print("Available models:", models.list_models())
+# Editable Python overrides. These take precedence over config_train.jsonc.
+# Put model-specific settings under model_overrides to keep model switching clean.
+OVERRIDES = {
+    # "epochs": 10,
+    # "data": {"beta_threshold": 0.3, "date_from": "2026-08-01"},
+    # "model_overrides": {"clstm_decoder": {"architecture": {"conv_filters": 100}}},
+}
 
-info = models.get("examplemodel")
-print("Name:", info.name)
-print("Description:", info.description)
 
-# --- Classification: 3-class problem on random data ---
-rng = np.random.RandomState(42)
-x_train = rng.randn(200, 32).astype(np.float32)
-y_train = rng.randint(0, 3, size=200)
+def main(argv=None):
+    args = parse_training_args(argv, default_config=str(HERE / "config_train.jsonc"),
+                               default_model=MODEL)
+    if show_catalog(args):
+        return 0
+    from unrbl_ml_pipeline.training import run_training
 
-print("\n--- Classification ---")
-model, history = train(
-    models.ExampleModel,
-    x_train,
-    y_train,
-    epochs=10,
-    batch_size=16,
-    validation_split=0.2,
-)
-print("Final accuracy:", history.history["accuracy"][-1])
-print("Output shape:", model.output_shape)
+    model, results = run_training(
+        args.model,
+        config_path=args.config,
+        config=training_overrides(args, OVERRIDES),
+        data_dir=args.data_dir,
+        output_dir=args.output_dir,
+    )
+    if args.save_path:
+        from unrbl_ml_pipeline.cli import save_model_copy
+        save_model_copy(model, args.save_path)
+    print("Model:", results["model_path"])
+    return 0
 
-# --- Regression: predict 2 continuous outputs ---
-y_reg = rng.randn(200, 2).astype(np.float32)
 
-print("\n--- Regression ---")
-model_reg, hist_reg = train(
-    "examplemodel",
-    x_train,
-    y_reg,
-    task="regression",
-    epochs=10,
-    validation_split=0.2,
-)
-print("Final MAE:", hist_reg.history["mae"][-1])
-print("Output shape:", model_reg.output_shape)
-
-# --- Different input shape: 2D time-series (samples, timesteps, channels) ---
-x_ts = rng.randn(200, 64, 8).astype(np.float32)
-y_ts = rng.randint(0, 5, size=200)
-
-print("\n--- 2D input (time-series) ---")
-model_ts, _ = train("examplemodel", x_ts, y_ts, epochs=5, validation_split=0.0)
-print("Output shape:", model_ts.output_shape)
+if __name__ == "__main__":
+    raise SystemExit(main())

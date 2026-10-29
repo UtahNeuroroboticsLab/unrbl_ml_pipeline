@@ -20,8 +20,8 @@ default_config = {
         "normalize",
         "window",
     ],
-    "window_size": 30,
-    "beta_threshold": 0.2,
+    "model": {"window_size": 30},
+    "data": {"beta_threshold": 0.2},
     "optimizer": "sgd",
     "learning_rate": 0.0001,
     "epochs": 2000,
@@ -62,18 +62,12 @@ def build(input_shape, num_classes, norm_stats=None, **config):
     x = inputs
 
     if norm_stats is not None:
-        try:
-            import tensorflow as tf
-        except ImportError:
-            tf = None
-        if tf is not None:
-            norm = layers.Normalization(axis=-1, name="feature_normalization")
-            norm.mean = tf.constant(norm_stats.feat_mean, dtype=tf.float32)
-            norm.variance = tf.constant(
-                norm_stats.feat_std ** 2, dtype=tf.float32
-            )
-            norm.built = True
-            x = norm(x)
+        x = layers.Normalization(
+            axis=-1,
+            mean=norm_stats.feat_mean.tolist(),
+            variance=(norm_stats.feat_std ** 2).tolist(),
+            name="feature_normalization",
+        )(x)
 
     x = layers.Reshape(
         (window_size, num_features, 1), name="add_channel_dim"
@@ -93,14 +87,13 @@ def build(input_shape, num_classes, norm_stats=None, **config):
         num_dofs, activation="linear", name="regression_output"
     )(x)
 
-    if norm_stats is not None and tf is not None:
-        kin_mean_t = tf.constant(norm_stats.kin_mean, dtype=tf.float32)
-        kin_std_t = tf.constant(norm_stats.kin_std, dtype=tf.float32)
-        outputs = layers.Lambda(
-            lambda t: t * kin_std_t + kin_mean_t, name="denormalize_output"
+    outputs = y_norm
+    if norm_stats is not None:
+        outputs = layers.Rescaling(
+            scale=norm_stats.kin_std.tolist(),
+            offset=norm_stats.kin_mean.tolist(),
+            name="denormalize_output",
         )(y_norm)
-    else:
-        outputs = y_norm
 
     return keras.Model(
         inputs=inputs, outputs=outputs, name="resnet50_decoder"

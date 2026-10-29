@@ -22,7 +22,7 @@ default_config = {
         "quality_filter",
         "split_by_file",
     ],
-    "beta_threshold": 0.2,
+    "data": {"beta_threshold": 0.2},
     "postprocessing": {
         "deadband": {"enabled": True, "threshold": 0.04},
     },

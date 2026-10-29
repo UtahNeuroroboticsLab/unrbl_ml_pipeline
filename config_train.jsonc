@@ -1,0 +1,56 @@
+// Shared by testfile.py and testfile_train_api.py.
+// Paths in this file are relative to this file, independent of your shell directory.
+{
+  "data": {
+    "base_dir": "data/training_data",
+    "kdf_glob": "**/*.kdf", // e.g. "hook*/*.kdf" to select movement folders
+    "beta_threshold": 0.2,
+    "date_from": null, // inclusive YYYY-MM-DD, e.g. "2026-08-01"
+    "date_to": null,
+    "num_raw_features": 496,
+    "kinematic_column_indices": [0, 1, 2, 3, 4, 5],
+    "dof_names": ["thumb", "index", "mrp", "thumb_int", "wrist_fe", "wrist_rot"]
+  },
+  "output_dir": "outputs",
+  // This ordinary loss works with the stateless KDF runner.
+  "loss": {"type": "mse"},
+  // Overrides apply only to the selected model. Other models retain their own
+  // architecture, window size, optimizer, and preprocessing defaults.
+  "model_overrides": {
+    "clstm_decoder": {
+      "preprocessing_steps": [
+        "load_kdf", "quality_filter", "split_by_detected_trial_deadzone", "normalize", "window"
+      ],
+      "model": {"window_size": 10, "prediction_lag_samples": 0},
+      "stateful": false,
+      "architecture": {
+        "conv_filters": 64,
+        "conv_kernel_size": 8,
+        "lstm_units": 128,
+        "dense_units": 50,
+        "use_batch_norm": true,
+        "dropout": 0.0,
+        "use_deadband_activation_output": false
+      },
+      "split": {
+        "test_size": 0.15,
+        "val_size": 0.15,
+        "random_state": 42,
+        "trial_detection": {
+          "min_trial_len": 10, "min_peak": 0.5, "merge_gap": 0,
+          "active_eps": 1e-9, "non_trial_policy": "train"
+        }
+      },
+      "optimizer": "adam",
+      "learning_rate": 0.0001,
+      "batch_size": 128,
+      "epochs": 200,
+      "early_stopping_patience": 18,
+      "reduce_lr_patience": 8,
+      "postprocessing": {
+        "deadband": {"enabled": false},
+        "latching_filter": {"enabled": false}
+      }
+    }
+  }
+}

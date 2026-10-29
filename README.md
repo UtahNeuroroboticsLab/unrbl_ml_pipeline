@@ -229,3 +229,136 @@ Automated QA
 ## TODOs:
 
 - [ ] Add method for adding non-neural network model file like kalman filter
+## Training on KDF recordings
+
+The repository includes two runnable examples. Install the package into your Python
+training environment first (`pip install -e .`), then run either example:
+
+```bash
+# Train and save a model, configuration, selection report, metrics, and plots.
+python testfile.py --config config_train.jsonc
+
+# Call train() directly and handle its return values yourself.
+python testfile_train_api.py --config config_train.jsonc
+
+# Override settings without editing the file.
+python testfile.py --epochs 1 --beta 0.2 --date-from 2026-08-01 --date-to 2026-09-30
+python testfile.py --kdf-glob 'hook*/*.kdf' --output-dir outputs/hook
+python testfile_train_api.py --model caleb_decoder --epochs 1
+python testfile.py --model kf_decoder
+python testfile.py --list-models
+python testfile.py --list-steps
+```
+
+Both examples work without arguments and locate their default `config_train.jsonc`
+relative to the script. Importing either example does not start training. Edit `MODEL`,
+`OVERRIDES`, and (in the direct example) `PREPROCESSING_STEPS` to configure runs in Python.
+The installed `unrbl-train` command accepts the same flags; without a config it searches
+`data/training_data` relative to the current working directory.
+
+The default example trains a stateless CLSTM with 64 convolution filters, 128 LSTM units,
+10-sample windows, and ordinary MSE. Both model-output and postprocessing deadbands are
+disabled. Its trial splitting includes each movement's following rest period; this is
+independent of output deadbanding. It uses up to 200 epochs with early stopping, so use
+`--epochs 1` for a short check. Switching models preserves that model's architecture,
+preprocessing, window size, and optimizer unless you override them explicitly.
+
+KDF training keeps preprocessed arrays in CPU memory and transfers individual batches
+to the model for training, validation, prediction, and evaluation. Only sample indices
+are shuffled, with one batch prefetched. This avoids placing entire windowed splits on
+the GPU; `--batch-size` controls the transfer size as well as the optimizer batch size.
+The complete windowed dataset still needs to fit in system RAM.
+
+### Configuration and selection
+
+Configuration precedence is model defaults, JSONC, Python overrides, then explicit CLI
+arguments. `model_overrides` sections apply only to the named model, allowing one config
+to hold CLSTM settings without applying them to Caleb or the Kalman estimator. Ordered
+`preprocessing_steps` lists replace the model's list, rather than being appended to it.
+These are package-native configs; TrueFaith configs are not automatically translated.
+
+- `data.base_dir` and `data.kdf_glob` select recordings recursively. Patterns can restrict
+  movement folders. Paths in JSONC are relative to that file; paths supplied directly in
+  Python or on the command line are relative to the caller's working directory.
+- `data.date_from` and `data.date_to` are optional inclusive `YYYY-MM-DD` bounds, based on
+  the `trainKDF_YYYYMMDD-HHMMSS` filename segment, including filenames with prefixes.
+  Files without valid timestamps are excluded only when a date bound is active.
+- `data.beta_threshold` keeps scores greater than or equal to beta. The score is the mean,
+  across selected target DOFs, of each DOF's best absolute feature correlation. Constant
+  DOFs contribute zero. Filtering occurs before splitting; changing beta can change the
+  test set, so metrics from different thresholds do not isolate a training improvement.
+- `data.kinematic_column_indices` defaults in the example to columns 0 through 5, excluding
+  the seventh reserved column. Change these and `dof_names` for another recording setup.
+- `model.window_size` and `model.prediction_lag_samples` control causal windows, which stay
+  within recording/trial segments. Normalization statistics use training data only and
+  are saved in the model. Flat `window_size`, `prediction_lag_samples`, and `beta_threshold`
+  aliases remain accepted; canonical nested keys win within a single override layer.
+
+The reference trial split can place trials from the same recording day in multiple
+partitions. Select `split_by_detected_trial_session` or `split_by_session` when the
+experiment requires day-level separation.
+
+### Package APIs
+
+Use the reporting wrapper for a complete recorded run:
+
+```python
+from unrbl_ml_pipeline.training import run_training
+
+model, results = run_training(
+    "clstm_decoder",
+    config_path="config_train.jsonc",
+    config={"epochs": 10},
+    data_dir="data/training_data",
+    output_dir="outputs",
+)
+print(results["run_dir"])
+print(results["metrics"]["aggregate"])
+```
+
+Use `train()` when your application controls saving and reporting:
+
+```python
+from pathlib import Path
+from unrbl_ml_pipeline import models
+from unrbl_ml_pipeline.training import train
+
+Path("outputs/direct").mkdir(parents=True, exist_ok=True)
+model, results = train(
+    models.get("clstm_decoder"),  # A registered name string also works.
+    data_dir="data/training_data",
+    config_path="config_train.jsonc",
+    config={"epochs": 10},
+    save_path="outputs/direct/model.keras",
+)
+history = results["history"].history
+print(results["test_loss"])
+```
+
+KDF calls return `(model, results)`. Results include resolved `config`, preprocessing
+`state`, `Y_test`, `Y_pred`, `Y_pred_raw`, and `trial_id_test`. Neural models additionally
+return Keras `history` and raw `test_loss`; estimators return `test_mse`. Existing array
+calls such as `train("examplemodel", x, y)` still return `(model, history)`.
+
+The wrapper creates a unique UTC-stamped directory for each run:
+
+| Artifact | Contents |
+|---|---|
+| `model.keras` or `model.pkl` | Saved neural model or fitted estimator |
+| `config.json`, `run.json` | Resolved settings and selected model |
+| `selection.json` | Matched paths, dates, scores, exclusions, load errors, split membership |
+| `splits.json` | Segment paths, trial IDs, sample counts, and available split metadata |
+| `history.json`, `loss.png` | Neural training and validation history |
+| `metrics.json` | Aggregate and per-DOF MSE, RMSE, MAE; also raw prediction metrics |
+| `predictions.png` | Grayscale held-out targets/predictions with gaps at segment boundaries |
+
+Prediction plots subsample long traces for readability; metrics use every test sample.
+Estimator runs omit epoch history and loss curves. `testfile_train_api.py` saves only the
+model and prints result summaries. It shows where to obtain the data for your own plots.
+The wrapper records failures in `failure.json` and re-raises the error.
+
+Load default neural models using `keras.saving.load_model(path)` or the package's
+`load_model_file(path)`; no unsafe Lambda loading is needed. Kalman models use
+`KalmanFilterDecoder.load(path)`. Stateful/chunk training and packed-target losses such
+as recency-weighted MSE are rejected by this runner until their training plumbing is
+implemented. TFLite export and cross-validation are separate workflows.
