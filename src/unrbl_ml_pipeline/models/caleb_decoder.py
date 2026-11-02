@@ -91,3 +91,6 @@ def build(input_shape, num_classes, norm_stats=None, **config):
         )(y_norm)
 
     return keras.Model(inputs=inputs, outputs=outputs, name="caleb_decoder")
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ('mse', 'huber', 'idle_weighted_mse')}

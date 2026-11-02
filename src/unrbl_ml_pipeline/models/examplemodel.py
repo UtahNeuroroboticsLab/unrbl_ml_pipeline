@@ -41,3 +41,6 @@ def build(input_shape, num_classes):
         layers.Dropout(0.3),
         layers.Dense(num_classes),
     ])
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ('mse', 'huber', 'idle_weighted_mse')}

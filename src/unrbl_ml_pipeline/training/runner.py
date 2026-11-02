@@ -56,6 +56,18 @@ def _plots(run_dir, results, names):
         ax.legend(frameon=False)
         fig.savefig(run_dir / "loss.png", dpi=150)
         fig.clear()
+        if 'objective' in history.history:
+            fig = Figure(figsize=(8, 4), layout='constrained')
+            FigureCanvasAgg(fig)
+            ax = fig.subplots()
+            for key, style in (('loss', '-'), ('objective', '--'), ('jacobian', ':'), ('d3', '-.')):
+                values = history.history.get(key)
+                if values is not None:
+                    ax.plot(np.arange(1, len(values)+1), values, style, color='black', label=key)
+            ax.set(xlabel='Epoch', ylabel='Objective / unweighted penalty', title='Mamba training objectives')
+            ax.legend(frameon=False)
+            fig.savefig(run_dir / 'objectives.png', dpi=150)
+            fig.clear()
 
     plot_predictions(run_dir / "predictions.png", results["Y_test"], results["Y_pred"],
                      results["trial_id_test"], names)
@@ -97,6 +109,12 @@ def run_training(model="clstm_decoder", *, config=None, config_path=None,
         state = results["state"]
         _write_json(run_dir / "selection.json", state.selection_report)
         _write_json(run_dir / "splits.json", state.split_info)
+        if 'fitted_preprocessing' in results:
+            _write_json(run_dir / 'preprocessing.json', results['fitted_preprocessing'])
+            _write_json(run_dir / 'provenance.json', state.provenance)
+            _write_json(run_dir / 'calibration.json', results['calibration'])
+            _write_json(run_dir / 'training_state.json', {key: results[key] for key in
+                ('best_epoch', 'best_checkpoint_full_strength', 'resume_from', 'checkpoint_dir')})
         names = resolved.get("data", {}).get("dof_names")
         metrics = regression_metrics(results["Y_test"], results["Y_pred"], names)
         if "test_loss" in results:

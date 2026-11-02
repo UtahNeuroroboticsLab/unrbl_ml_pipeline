@@ -338,3 +338,6 @@ def stateful_predict(model, X, trial_id, lstm_units):
         preds.append(pred[0])
 
     return np.array(preds, dtype=np.float32)
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ('mse', 'huber', 'idle_weighted_mse')}

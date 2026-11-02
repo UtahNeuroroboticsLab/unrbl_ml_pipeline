@@ -1,0 +1,63 @@
+// For compatible five-section recordings containing twelve real target columns.
+// Set data.base_dir to their location; the local COB recordings are not twelve-output data.
+{
+  "data": {
+    // Opt in to evenly spaced row-order time for unusable clocks; preserve usable clocks.
+    "allow_missing_timestamps": false,
+    // Null estimates the interval from matched usable clocks. Override in timestamp units.
+    "sample_interval": null,
+    "base_dir": "data/training_data",
+    "kdf_format": "five_section",
+    "kdf_glob": "**/*.kdf",
+    "beta_threshold": 0.2,
+    "kinematic_column_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "dof_names": [
+      "dof_0",
+      "dof_1",
+      "dof_2",
+      "dof_3",
+      "dof_4",
+      "dof_5",
+      "dof_6",
+      "dof_7",
+      "dof_8",
+      "dof_9",
+      "dof_10",
+      "dof_11"
+    ]
+  },
+  "output_dir": "outputs",
+  "state_mode": "carry",
+  "loss": {
+    "type": "mse",
+    "warmup_epochs": 20
+  },
+  "model": {
+    "window_size": 10,
+    "prediction_lag_samples": 1
+  },
+  "alignment": {
+    "lag_min": -20,
+    "lag_max": 20
+  },
+  "feature_selection": {
+    "count": 48,
+    "corr_threshold": 0.3,
+    "candidates": "emg"
+  },
+  "streams": 4,
+  "tbptt_steps": 16
+}

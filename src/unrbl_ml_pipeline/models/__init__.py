@@ -20,6 +20,12 @@ import importlib
 
 # YOU NEED TO MANUALLY UPDATE THESE IF YOU MAKE A NEW MODEL FILE HERE
 _REGISTRY = {
+    "mamba_decoder": "mamba_decoder",
+    "tcn_mamba_decoder": "tcn_mamba_decoder",
+    "mamba_tcn_decoder": "mamba_tcn_decoder",
+    "mamba_tcl_decoder": "mamba_tcl_decoder",
+    "mamba_lstm_decoder": "mamba_lstm_decoder",
+
     "examplemodel": "examplemodel",
     "caleb_decoder": "caleb_decoder",
     "resnet50_decoder": "resnet50_decoder",

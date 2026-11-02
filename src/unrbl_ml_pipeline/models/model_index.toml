@@ -39,10 +39,30 @@ description = "AlexNet-style CNN adapted for Prosthesis control from iEMG data"
 paper = "Krizhevsky et al., 2012"
 status = "planned"
 
-[mamba]
-description = "State space model with possible advantages for Prosthesis control"
-paper = "Ferrisi (in the works...)"
-status = "planned"
+[mamba_decoder]
+description = "Mamba-1 mamba regression decoder, carry/reset"
+model_type = "keras"
+status = "implemented"
+
+[tcn_mamba_decoder]
+description = "Mamba-1 tcn_mamba regression decoder, carry/reset"
+model_type = "keras"
+status = "implemented"
+
+[mamba_tcn_decoder]
+description = "Mamba-1 mamba_tcn regression decoder, carry/reset"
+model_type = "keras"
+status = "implemented"
+
+[mamba_tcl_decoder]
+description = "Mamba-1 mamba_tcl regression decoder, carry/reset"
+model_type = "keras"
+status = "implemented"
+
+[mamba_lstm_decoder]
+description = "Mamba-1 mamba_lstm regression decoder, carry/reset"
+model_type = "keras"
+status = "implemented"
 
 [george2018]
 description = "CNN from George et al. EMBC 2018"

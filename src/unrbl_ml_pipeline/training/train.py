@@ -95,6 +95,8 @@ def train(
         merged["loss"] = {"type": loss} if isinstance(loss, str) else loss
     if "learning_rate" in fit_kwargs:
         merged["learning_rate"] = fit_kwargs.pop("learning_rate")
+    from .compatibility import validate_loss
+    validate_loss(mod, merged)
     _validate_pipeline_config(merged, model_type)
     progress = fit_kwargs.pop("_progress", None)
     if progress is None:
@@ -106,6 +108,10 @@ def train(
     if model_type == "estimator":
         return _train_estimator(mod, merged, progress, save_path=save_path)
 
+    if getattr(mod, 'training_route', None) == 'mamba':
+        from .mamba_train import train_mamba
+        return train_mamba(mod, merged, progress, save_path=save_path,
+                           callbacks=callbacks, metrics=metrics, **fit_kwargs)
     return _train_with_preprocessing(
         mod, merged, progress, save_path=save_path,
         extra_callbacks=callbacks, metrics=metrics, **fit_kwargs,
@@ -126,7 +132,7 @@ def _validate_pipeline_config(config, model_type):
         raise ValueError("split.test_size and val_size must be positive and sum to less than 1")
     if model_type != "estimator":
         loss_type = config.get("loss", {"type": "mse"}).get("type")
-        if loss_type not in ("mse", "huber", "idle_weighted_mse"):
+        if "state_mode" not in config and loss_type not in ("mse", "huber", "idle_weighted_mse"):
             raise ValueError(f"Loss {loss_type!r} is unsupported by the stateless KDF runner; use mse, huber, or idle_weighted_mse")
         if int(config.get("epochs", 200)) < 1 or int(config.get("batch_size", 128)) < 1:
             raise ValueError("epochs and batch_size must be positive")

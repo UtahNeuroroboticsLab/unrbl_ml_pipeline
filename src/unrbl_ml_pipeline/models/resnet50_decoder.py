@@ -98,3 +98,6 @@ def build(input_shape, num_classes, norm_stats=None, **config):
     return keras.Model(
         inputs=inputs, outputs=outputs, name="resnet50_decoder"
     )
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ('mse', 'huber', 'idle_weighted_mse')}

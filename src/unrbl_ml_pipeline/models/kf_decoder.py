@@ -37,3 +37,6 @@ def build(**config):
     """
     from unrbl_ml_pipeline.training.kalman import KalmanFilterDecoder
     return KalmanFilterDecoder
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ()}

@@ -74,4 +74,5 @@ def _load_keras(path):
             f"Loading {KERAS_SUFFIX} needs Keras, which a normal `pip install unrbl-ml-pipeline` brings in "
             "via tensorflow on this interpreter. Reinstall without --no-deps."
         )
+    from unrbl_ml_pipeline.training import mamba_layers  # noqa: F401
     return keras.saving.load_model(path)

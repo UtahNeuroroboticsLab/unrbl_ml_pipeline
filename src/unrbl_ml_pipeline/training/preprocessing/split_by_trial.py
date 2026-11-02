@@ -23,6 +23,12 @@ def _chunk_of(f, start, end, suffix):
         path=f.path,
         features=f.features[start:end].copy(),
         kinematics=f.kinematics[start:end].copy(),
+        nip_time=None if f.nip_time is None else f.nip_time[start:end].copy(),
+        source_indices=f.source_indices[start:end].copy(),
+        feature_indices=f.feature_indices[start:end].copy(),
+        nominal_interval=f.nominal_interval,
+        timestamp_info=f.timestamp_info.copy(),
+        original_nip_time=None if f.original_nip_time is None else f.original_nip_time[start:end].copy(),
         trial_id=f"{f.trial_id}_{suffix}",
     )
 
@@ -62,6 +68,9 @@ def run(state, config):
     for f in state.files:
         kef_path = os.path.splitext(f.path)[0] + ".kef"
         trials = parse_kef(kef_path) if os.path.exists(kef_path) else []
+        if trials and f.timestamp_info.get('source') == 'sample_order':
+            raise ValueError('KEF event timestamps cannot be aligned to row-order proxy time; '
+                             'use split_by_detected_trial_deadzone or another sample-based split')
         if trials and f.nip_time is not None:
             tid = trial_id_from_kef(f.nip_time, trials)
         else:

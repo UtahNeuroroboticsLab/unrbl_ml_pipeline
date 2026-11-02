@@ -34,9 +34,9 @@ def main(argv=None):
     if PREPROCESSING_STEPS is not None:
         python_settings["preprocessing_steps"] = PREPROCESSING_STEPS
     
-    overrides = training_overrides(args, python_settings)
+    overrides      = training_overrides(args, python_settings)
     selected_model = models.get(args.model)
-    resolved = resolve_config(selected_model, user_config=overrides, config_path=args.config)
+    resolved       = resolve_config(selected_model, user_config=overrides, config_path=args.config)
     
     if args.save_path:
         save_path = Path(args.save_path)

@@ -60,3 +60,6 @@ def build(input_shape, num_classes, norm_stats=None, **config):
         input_shape, num_classes, norm_stats=norm_stats,
         stateful=False, **config,
     )
+
+# Validated KDF objectives; array-based Keras training remains independent.
+supported_objectives = {'reset': ('mse', 'huber', 'idle_weighted_mse')}

@@ -70,6 +70,20 @@ def run(state, config):
         if not files:
             continue
         X, Y, tid, sf = make_windows(files, window_size, prediction_lag_samples=lag)
+        records, offset = [], 0
+        for f in files:
+            n = len(f.features) - window_size + 1 - lag
+            if n <= 0:
+                continue
+            first = window_size - 1 + lag
+            records.append({"start": offset, "end": offset+n, "path": os.path.abspath(f.path),
+                "trial_id": f.trial_id, "segment_id": f"{os.path.abspath(f.path)}:{f.trial_id}:{int(f.source_indices[0])}",
+                "target_indices": f.source_indices[first:first+n],
+                "input_end_indices": f.feature_indices[window_size-1:window_size-1+n],
+                "target_times": None if f.nip_time is None else f.nip_time[first:first+n],
+                "nominal_interval": f.nominal_interval, "timing": f.timestamp_info.copy()})
+            offset += n
+        state.provenance[split_name] = records
         setattr(state, f"X_{split_name}", X)
         setattr(state, f"Y_{split_name}", Y)
         setattr(state, f"trial_id_{split_name}", tid)

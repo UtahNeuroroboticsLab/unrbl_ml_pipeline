@@ -1,0 +1,67 @@
+{
+  "reference": "decoder-design official_v2",
+  "torch_version": "2.15.0+cpu",
+  "seed": 83,
+  "author_provenance": [
+    {
+      "repo": "locuslab/TCN",
+      "commit": "2f8c2b817050206397458dfd1f5a25ce8a32fe65",
+      "path": "TCN/tcn.py",
+      "file": "vendor/official_261011/tcn.py",
+      "url": "https://raw.githubusercontent.com/locuslab/TCN/2f8c2b817050206397458dfd1f5a25ce8a32fe65/TCN/tcn.py",
+      "sha256": "f93c67de970f4c9e1a96a7d2bed1df89c521faf6ca94e36455267605b1ad585f"
+    },
+    {
+      "repo": "locuslab/TCN",
+      "commit": "2f8c2b817050206397458dfd1f5a25ce8a32fe65",
+      "path": "LICENSE",
+      "file": "vendor/official_261011/TCN_LICENSE",
+      "url": "https://raw.githubusercontent.com/locuslab/TCN/2f8c2b817050206397458dfd1f5a25ce8a32fe65/LICENSE",
+      "sha256": "7b9a89cb975f5891f02be043c0ca5c9b9d6c43ced216c2d508f0f7e4380a6cbd"
+    },
+    {
+      "repo": "state-spaces/mamba",
+      "commit": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+      "path": "mamba_ssm/modules/mamba_simple.py",
+      "file": "vendor/official_261011/mamba_simple.py",
+      "url": "https://raw.githubusercontent.com/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/mamba_ssm/modules/mamba_simple.py",
+      "sha256": "a17e4c51b582dc0d4d690a649eba521cd0c1ee3dc8f0473a0967cdc9ec0874e3"
+    },
+    {
+      "repo": "state-spaces/mamba",
+      "commit": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+      "path": "mamba_ssm/modules/block.py",
+      "file": "vendor/official_261011/block.py",
+      "url": "https://raw.githubusercontent.com/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/mamba_ssm/modules/block.py",
+      "sha256": "b62e755195c277a027c5d9cc8d576a8ae4a1d1317143b91370b2f8ce683b4cc1"
+    },
+    {
+      "repo": "state-spaces/mamba",
+      "commit": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+      "path": "mamba_ssm/models/mixer_seq_simple.py",
+      "file": "vendor/official_261011/mixer_seq_simple.py",
+      "url": "https://raw.githubusercontent.com/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/mamba_ssm/models/mixer_seq_simple.py",
+      "sha256": "e79b400dd2de7fcfe59001b6247bd817d1994d780c52b0857c18446827bfe700"
+    },
+    {
+      "repo": "state-spaces/mamba",
+      "commit": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+      "path": "mamba_ssm/ops/selective_scan_interface.py",
+      "file": "vendor/official_261011/selective_scan_interface.py",
+      "url": "https://raw.githubusercontent.com/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/mamba_ssm/ops/selective_scan_interface.py",
+      "sha256": "a570f4f15a2eebabf62024a9ffb0d1dde04280300405e1632f43809f448bfb1a"
+    },
+    {
+      "repo": "state-spaces/mamba",
+      "commit": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+      "path": "LICENSE",
+      "file": "vendor/official_261011/MAMBA_LICENSE",
+      "url": "https://raw.githubusercontent.com/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/LICENSE",
+      "sha256": "760939b000194d04548ede6a857bbe735d1695d8422ec85955c8e2bd7f4b95c5"
+    }
+  ],
+  "adapter_sha256": {
+    "official_models.py": "cb89bc17fb31b80060c622f940611ffb99c63aed0d246a9a9f3574f531a5d7e0",
+    "official_backbones.py": "208f2eabfecd257f8738485b6137510f67e8752fb7c293a668449dc1330c914f"
+  }
+}

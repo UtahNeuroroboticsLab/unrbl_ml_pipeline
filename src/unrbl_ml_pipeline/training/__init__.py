@@ -1,33 +1,17 @@
-"""Training stack. Requires Python 3.10-3.13 (where TensorFlow has wheels).
+"""Lazy training exports; loss discovery does not load the numerical backend."""
+from .compatibility import supported_losses
+from .config import load_jsonc, resolve_config
 
-Author: Leonardo M. Ferrisi
-Date: 2026-07-16
+__all__ = ['Estimator', 'load_jsonc', 'resolve_config', 'run_training', 'supported_losses', 'train']
 
-This subpackage is the 3.7 boundary. The directory IS the Python-version line:
 
-  - Modules **here** may import tensorflow/keras/sklearn/matplotlib at module level.
-    Importing `unrbl_ml_pipeline.training` is already a declaration that you are on 3.10-3.13.
-  - Modules in the package **root** may not. They must import on the Summit's Python 3.7,
-    where pyproject's markers install numpy + unrbl-tflite-runtime and no TF at all.
-
-Put anything that needs TF, scikit-learn, or matplotlib in here. If you find yourself wanting
-one of those from a root module, that module belongs in this subpackage instead.
-"""
-
-import sys
-
-try:
-    import tensorflow  # noqa: F401
-except ImportError:
-    # On 3.10-3.13 the markers guarantee TF, so this fires on the Summit's 3.7, in the 3.8/3.9
-    # and 3.14+ marker gaps, or on a --no-deps install. Say the unfixable part plainly: on 3.7
-    # no pip command puts TF here, and on 3.14 none exists yet.
-    raise ImportError(
-        f"3.10-3.13 (running {sys.version_info[0]}.{sys.version_info[1]}). Train on an interpreter in that range, convert to "
-        ".tflite, and deploy that."
-    )
-
-from unrbl_ml_pipeline.training.config import load_jsonc, resolve_config  # noqa: F401
-from unrbl_ml_pipeline.training.estimator import Estimator  # noqa: F401
-from unrbl_ml_pipeline.training.runner import run_training  # noqa: F401
-from unrbl_ml_pipeline.training.train import train  # noqa: F401
+def __getattr__(name):
+    import importlib
+    modules = {'train': 'train', 'run_training': 'runner', 'Estimator': 'estimator'}
+    if name not in modules:
+        raise AttributeError(name)
+    # Resolve all heavy exports together so submodule imports cannot shadow functions.
+    values = {key: getattr(importlib.import_module('.' + module, __name__), key)
+              for key, module in modules.items()}
+    globals().update(values)
+    return values[name]

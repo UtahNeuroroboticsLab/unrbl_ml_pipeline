@@ -112,9 +112,10 @@ def read_kdf_cob(path):
     )
 
 
-def load_one_kdf(path, kinematic_column_indices=None):
+def load_one_kdf(path, kinematic_column_indices=None, kdf_format="cob"):
+
     """Load a single .kdf file into a KdfFile."""
-    features, kinematics, nip_time = read_kdf_cob(path)
+    features, kinematics, nip_time = read_kdf(path, kdf_format)
     if kinematic_column_indices is not None:
         kinematics = kinematics[:, kinematic_column_indices]
     return KdfFile(path=path, features=features, kinematics=kinematics, nip_time=nip_time)
@@ -191,7 +192,7 @@ def run(state, config):
                 state.progress.file(p, config, decision="SKIP", reason=record["reason"])
             continue
         try:
-            f = load_one_kdf(p, kinematic_column_indices=kin_cols)
+            f = load_one_kdf(p, kinematic_column_indices=kin_cols, kdf_format=data_cfg.get("kdf_format", "cob"))
             if not len(f.features) or not np.isfinite(f.features).all() or not np.isfinite(f.kinematics).all():
                 raise ValueError("Empty recording or non-finite features/targets")
             files.append(f)
@@ -203,6 +204,11 @@ def run(state, config):
 
     if not files:
         raise ValueError("No usable KDF files remain after date filtering and loading; inspect dates and KDF contents.")
+    from ._timing import apply_timing_policy
+    files = apply_timing_policy(files, state, config)
+    if not files:
+        raise ValueError('No usable KDF recordings remain after timestamp validation; '
+                         'use --allow-missing-timestamps with an estimated or explicit --sample-interval')
     dimensions = {(f.features.shape[1], f.kinematics.shape[1]) for f in files}
     if len(dimensions) != 1:
         raise ValueError(f"Incompatible KDF feature/target dimensions: {sorted(dimensions)}")
@@ -215,3 +221,32 @@ def run(state, config):
 
     state.files = files
     return state
+
+
+def read_kdf(path, kdf_format='auto'):
+    """Validate the COB (3 fields) or five-section format without guessing ties."""
+    if kdf_format == 'cob':
+        return read_kdf_cob(path)
+    if kdf_format not in ('auto', 'five_section'):
+        raise ValueError('data.kdf_format must be auto, cob, or five_section')
+    raw = np.fromfile(path, dtype='<f4')
+    valid = []
+    for n in (3, 5):
+        header = raw[:n]
+        if len(header) != n or not np.isfinite(header).all() or not np.equal(header, np.floor(header)).all():
+            continue
+        h = header.astype(int)
+        if h[0] != 1 or min(h[1:3]) < 1 or min(h) < 0:
+            continue
+        rows = int(h.sum())
+        if len(raw) > n and (len(raw)-n) % rows == 0:
+            valid.append(n)
+    if kdf_format == 'five_section':
+        valid = [n for n in valid if n == 5]
+    if len(valid) != 1:
+        raise ValueError('Invalid or ambiguous KDF layout; specify data.kdf_format explicitly')
+    if valid[0] == 3:
+        return read_kdf_cob(path)
+    h = raw[:5].astype(int)
+    values = raw[5:].reshape(-1, int(h.sum()))
+    return (values[:, 1:1+h[1]].copy(), values[:, 1+h[1]:1+h[1]+h[2]].copy(), values[:, 0].copy())

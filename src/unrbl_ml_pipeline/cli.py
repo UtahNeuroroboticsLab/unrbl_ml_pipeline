@@ -16,11 +16,21 @@ def parse_training_args(argv=None, *, default_config=None, default_model="clstm_
     parser.add_argument("--beta", type=float, help="Minimum correlation quality score.")
     parser.add_argument("--date-from", help="Inclusive recording date, YYYY-MM-DD.")
     parser.add_argument("--date-to", help="Inclusive recording date, YYYY-MM-DD.")
+    parser.add_argument('--allow-missing-timestamps', action='store_true', default=None,
+                        help='Use regularly sampled row order for missing/constant/nonfinite clocks; preserve usable clocks.')
+    parser.add_argument('--sample-interval', type=float,
+                        help='Proxy interval in timestamp units; otherwise estimate from matched recordings with usable clocks.')
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument("--window-size", type=int)
     parser.add_argument("--steps", nargs="+", help="Ordered preprocessing step names; replaces model defaults.")
+    parser.add_argument('--state-mode', choices=('carry', 'reset'))
+    parser.add_argument('--loss', help='Declared objective supported by this model and training mode.')
+    parser.add_argument('--streams', type=int)
+    parser.add_argument('--tbptt-steps', type=int)
+    parser.add_argument('--resume-from', help='Epoch checkpoint directory.')
+    parser.add_argument('--list-losses', action='store_true')
     parser.add_argument("--list-models", action="store_true")
     parser.add_argument("--list-steps", action="store_true")
     return parser.parse_args(argv)
@@ -28,6 +38,16 @@ def parse_training_args(argv=None, *, default_config=None, default_model="clstm_
 
 def show_catalog(args):
     """Print a requested catalog and return whether training should be skipped."""
+    if args.list_losses:
+        from unrbl_ml_pipeline.training.compatibility import (
+            LOSS_REQUIREMENTS,
+            supported_losses,
+        )
+        names = supported_losses(args.model, args.state_mode)
+        for name in names:
+            print(f'{name}: {LOSS_REQUIREMENTS[name]}')
+        if not names:
+            print('No selectable objectives for this model/mode; estimators own their fitting objective.')
     if args.list_models:
         from unrbl_ml_pipeline import models
         for name in models.list_models():
@@ -36,17 +56,20 @@ def show_catalog(args):
     if args.list_steps:
         from unrbl_ml_pipeline.training.preprocessing import list_steps
         print("\n".join(list_steps()))
-    return args.list_models or args.list_steps
+    return args.list_models or args.list_steps or args.list_losses
 
 
 def training_overrides(args, python_overrides=None):
     """Merge explicit CLI values over the editable Python settings."""
     from unrbl_ml_pipeline.training.config import deep_merge
-    overrides = {key: getattr(args, key) for key in ("epochs", "batch_size", "learning_rate")
+    overrides = {key: getattr(args, key) for key in ("epochs", "batch_size", "learning_rate", "state_mode", "streams", "tbptt_steps", "resume_from")
                  if getattr(args, key) is not None}
+    if args.loss is not None:
+        overrides['loss'] = {'type': args.loss}
     data = {key: getattr(args, arg) for key, arg in (
         ("kdf_glob", "kdf_glob"), ("beta_threshold", "beta"),
         ("date_from", "date_from"), ("date_to", "date_to"),
+        ("allow_missing_timestamps", "allow_missing_timestamps"), ("sample_interval", "sample_interval"),
     ) if getattr(args, arg) is not None}
     if data:
         overrides["data"] = data

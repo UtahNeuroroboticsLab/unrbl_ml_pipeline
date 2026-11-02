@@ -21,7 +21,22 @@ class KdfFile:
     nip_time: np.ndarray | None = None  # [T]
     trial_id: str = field(default="")
 
+    source_indices: Any = None
+    feature_indices: Any = None
+    nominal_interval: Any = None
+    timestamp_info: dict = field(default_factory=dict)
+    original_nip_time: Any = None
+
     def __post_init__(self):
+        if self.source_indices is None:
+            self.source_indices = np.arange(len(self.features))
+        if self.feature_indices is None:
+            self.feature_indices = self.source_indices.copy()
+        if self.nominal_interval is None and self.nip_time is not None and np.isfinite(self.nip_time).all():
+            dt = np.diff(np.asarray(self.nip_time, dtype=float))
+            positive = dt[dt > 0]
+            if len(positive):
+                self.nominal_interval = float(np.median(positive))
         if not self.trial_id:
             self.trial_id = os.path.splitext(os.path.basename(self.path))[0]
 
@@ -52,6 +67,9 @@ class PipelineState:
     val_files: list[Any] = field(default_factory=list)
     test_files: list[Any] = field(default_factory=list)
     split_info: dict[str, Any] = field(default_factory=dict)
+
+    fitted_preprocessing: dict = field(default_factory=dict)
+    provenance: dict = field(default_factory=dict)
 
     # After normalization
     norm_stats: NormStats | None = None

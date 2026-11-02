@@ -379,3 +379,13 @@ Load default neural models using `keras.saving.load_model(path)` or the package'
 `KalmanFilterDecoder.load(path)`. Stateful/chunk training and packed-target losses such
 as recency-weighted MSE are rejected by this runner until their training plumbing is
 implemented. TFLite export and cross-validation are separate workflows.
+
+## Mamba decoders
+
+Five Keras Mamba-1 variants support carry/reset training, train-only lag and channel selection, regularized objectives, and epoch-boundary resume. See [the Mamba guide](docs/mamba.md) and [declared loss compatibility](docs/loss_compatibility.md).
+
+For cluster setup and Slurm submission, see [2026-10-31 - CHPC Mamba training](docs/2026-10-31_chpc_mamba_training.md).
+
+```bash
+python testfile.py --model mamba_decoder --config config_mamba.jsonc
+```

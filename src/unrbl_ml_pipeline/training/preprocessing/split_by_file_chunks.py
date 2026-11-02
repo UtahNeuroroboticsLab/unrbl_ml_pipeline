@@ -16,6 +16,12 @@ def _chunk_of(f, start, end, suffix):
         path=f.path,
         features=f.features[start:end].copy(),
         kinematics=f.kinematics[start:end].copy(),
+        nip_time=None if f.nip_time is None else f.nip_time[start:end].copy(),
+        source_indices=f.source_indices[start:end].copy(),
+        feature_indices=f.feature_indices[start:end].copy(),
+        nominal_interval=f.nominal_interval,
+        timestamp_info=f.timestamp_info.copy(),
+        original_nip_time=None if f.original_nip_time is None else f.original_nip_time[start:end].copy(),
         trial_id=f"{f.trial_id}_{suffix}",
     )
 

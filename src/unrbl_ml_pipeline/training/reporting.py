@@ -67,6 +67,9 @@ def _plot_scatter(path, truth, pred, names):
 
 def test_source_segments(results, model_type):
     """Map test prediction offsets to full source paths without basename collisions."""
+    provenance = getattr(results['state'], 'provenance', {}).get('test')
+    if provenance:
+        return [{key: record[key] for key in ('start', 'end', 'path', 'trial_id')} for record in provenance]
     config = results["config"]
     windowed = model_type == "keras" and "window" in config["preprocessing_steps"]
     window = int(config.get("model", {}).get("window_size", 50)) if windowed else 1
@@ -170,9 +173,31 @@ def write_performance_report(run_dir, model, model_name, model_type, results, me
         count = len(x) if model_type == "keras" and x is not None else sum(len(file.features) for file in files)
         lines.append(f"| {split} | {unique} | {len(files)} | {count} |")
     lines += ["", "Segments are split trial/recording chunks. Recording counts can overlap across trial-level splits.", ""]
+    timing = getattr(state, 'fitted_preprocessing', {}).get('timing', {})
+    proxy_count = sum(getattr(f, 'timestamp_info', {}).get('source') == 'sample_order' for f in state.files)
+    if proxy_count:
+        lines += [(f"Timing: {proxy_count} selected recordings use sample-order proxy timestamps "
+                  f"at {timing.get('proxy_interval')} timestamp units/sample."),
+                  ('Rows are assumed consecutive and regularly sampled. Internal acquisition gaps cannot be detected '
+                  'for those recordings; file/trial and split boundaries remain isolated.'), '']
     if model_type == "keras":
         lines += [(f"Window size: {config.get('model', {}).get('window_size', 50)} samples. "
                   f"Prediction lag: {config.get('model', {}).get('prediction_lag_samples', 0)} samples."), ""]
+    if 'fitted_preprocessing' in results:
+        from .compatibility import LOSS_REQUIREMENTS
+        lines += ['## Mamba training contract', '',
+            f"- State mode: {config['state_mode']}",
+            '- State resets: recording, split segment, nonpositive timestamp or gap > 1.5 nominal intervals; every epoch/evaluation.',
+            f"- Objective: {config['loss']['type']} ({LOSS_REQUIREMENTS[config['loss']['type']]})",
+            f"- Best epoch: {results['best_epoch']}; full regularization active: {results['best_checkpoint_full_strength']}",
+            f"- Resume source: {_text(results.get('resume_from') or 'none')}",
+            '- Input: raw feature columns, chronological oldest-first windows; selection is embedded.',
+            '', '### Fitted preprocessing', '', '```json',
+            json.dumps(results['fitted_preprocessing'], indent=2), '```', '',
+            'Calibration: ' + link('calibration.json', run_dir / 'calibration.json'),
+            'Sample provenance: ' + link('provenance.json', run_dir / 'provenance.json'), '',
+            'MSE is recorded as loss; objective and individual penalty histories are recorded separately.', '',
+            link('Training objectives', run_dir / 'objectives.png', image=True), '']
     lines += ["## Output processing", ""]
     enabled = []
     for key in ("latching_filter", "deadband", "kalman_filter"):
@@ -208,7 +233,7 @@ def write_performance_report(run_dir, model, model_name, model_type, results, me
                   f"- Optimizer: {config.get('optimizer', 'adam')}; initial learning rate: {config.get('learning_rate', 0.001)}",
                   f"- Batch size: {config.get('batch_size', 128)}"]
         layer_names = {layer.name for layer in model.layers}
-        embedded = {'feature_normalization', 'denormalize_output'} <= layer_names
+        embedded = bool(getattr(model, 'norm_stats', None)) or {'feature_normalization', 'denormalize_output'} <= layer_names
         lines.append("- Feature/target normalization embedded in model: " + ("yes" if embedded else "no"))
         history = results["history"].history
         lines.append(f"- Epochs completed: {len(history['loss'])} of {config.get('epochs', 200)} maximum")

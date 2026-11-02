@@ -1,0 +1,53 @@
+// Shared by both training examples. Python overrides follow this file; CLI flags win.
+// Optional: add normalize between select_features and window in preprocessing_steps.
+// Loss choices: mse, mse_pinn, mse_jacobian, mse_pinn_jacobian.
+{
+  "data": {
+    // Opt in to evenly spaced row-order time for unusable clocks; preserve usable clocks.
+    "allow_missing_timestamps": true, // I enabled this
+    // Null estimates the interval from matched usable clocks. Override in timestamp units.
+    "sample_interval": null,
+    "base_dir": "data/training_data",
+    "kdf_format": "cob",
+    "kdf_glob": "**/*.kdf",
+    "beta_threshold": 0.2,
+    "num_raw_features": 496,
+    "kinematic_column_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "dof_names": [
+      "thumb",
+      "index",
+      "mrp",
+      "thumb_int",
+      "wrist_fe",
+      "wrist_rot"
+    ]
+  },
+  "output_dir": "outputs",
+  "state_mode": "carry",
+  "loss": {
+    "type": "mse_pinn_jacobian", // "mse" //
+    "warmup_epochs": 20
+  },
+  "model": {
+    "window_size": 10,
+    "prediction_lag_samples": 1
+  },
+  "alignment": {
+    "lag_min": -20,
+    "lag_max": 20
+  },
+  "feature_selection": {
+    "count": 48,
+    "corr_threshold": 0.3,
+    "candidates": "emg"
+  },
+  "streams": 4,
+  "tbptt_steps": 16
+}
