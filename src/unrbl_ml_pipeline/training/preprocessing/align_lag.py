@@ -17,6 +17,7 @@ def slice_file(f, start, end, suffix=""):
         f.nominal_interval,
         f.timestamp_info.copy(),
         None if f.original_nip_time is None else f.original_nip_time[start:end].copy(),
+        f.trial_info.copy(),
     )
 
 

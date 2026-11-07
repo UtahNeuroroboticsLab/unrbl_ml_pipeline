@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from .config import resolve_config
+from .config import resolve_config, resolve_model_name
 from .metrics import regression_metrics
 from .progress import TrainingProgress
 from .reporting import plot_predictions, write_performance_report
@@ -41,6 +41,9 @@ def _plots(run_dir, results, names):
     # FigureCanvasAgg avoids display/backend changes in callers' applications.
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
+    from .alignment_report import plot_trial_alignment
+
+    plot_trial_alignment(run_dir / "trial_alignment.png", results["state"])
 
     history = results.get("history")
     if history is not None and "loss" in history.history:
@@ -73,18 +76,22 @@ def _plots(run_dir, results, names):
                      results["trial_id_test"], names)
 
 
-def run_training(model="clstm_decoder", *, config=None, config_path=None,
+def run_training(model=None, *, config=None, config_path=None,
                  data_dir=None, output_dir=None, **train_kwargs):
     """Call train(), save a unique run, and return (model, results).
 
     Configuration order: model defaults < config_path < config < explicit
     training arguments. Relative paths in JSONC are relative to that file.
+    When model is omitted, select config.model_name, then the file's model_name,
+    then clstm_decoder. An explicit model always wins.
     Results include run_dir, model_path, metrics, history (neural models),
     resolved config, predictions, and preprocessing state.
     """
-    mod = _resolve_module(model)
     if isinstance(config, (str, Path)):
         config_path, config = config, None
+    if model is None:
+        model = resolve_model_name(user_config=config, config_path=config_path)
+    mod = _resolve_module(model)
     merged = resolve_config(mod, user_config=config, config_path=config_path)
     if "save_path" in train_kwargs:
         raise ValueError("run_training manages model saving; use output_dir instead of save_path")
@@ -109,9 +116,10 @@ def run_training(model="clstm_decoder", *, config=None, config_path=None,
         state = results["state"]
         _write_json(run_dir / "selection.json", state.selection_report)
         _write_json(run_dir / "splits.json", state.split_info)
-        if 'fitted_preprocessing' in results:
-            _write_json(run_dir / 'preprocessing.json', results['fitted_preprocessing'])
+        if state.fitted_preprocessing:
+            _write_json(run_dir / 'preprocessing.json', state.fitted_preprocessing)
             _write_json(run_dir / 'provenance.json', state.provenance)
+        if 'fitted_preprocessing' in results:
             _write_json(run_dir / 'calibration.json', results['calibration'])
             _write_json(run_dir / 'training_state.json', {key: results[key] for key in
                 ('best_epoch', 'best_checkpoint_full_strength', 'resume_from', 'checkpoint_dir')})

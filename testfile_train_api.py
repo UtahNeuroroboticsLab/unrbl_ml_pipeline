@@ -10,7 +10,7 @@ from unrbl_ml_pipeline import models
 from unrbl_ml_pipeline.cli import parse_training_args, show_catalog, training_overrides
 
 HERE = Path(__file__).resolve().parent
-MODEL = "clstm_decoder"
+MODEL = "clstm_decoder"  # Fallback; JSONC model_name and explicit --model take precedence.
 
 # Editable Python overrides, applied after the JSONC file and before CLI flags.
 OVERRIDES = {
@@ -24,7 +24,7 @@ PREPROCESSING_STEPS = None
 
 def main(argv=None):
     args = parse_training_args(argv, default_config=str(HERE / "config_train.jsonc"),
-                               default_model=MODEL)
+                               default_model=MODEL, python_overrides=OVERRIDES)
     if show_catalog(args):
         return 0
     from unrbl_ml_pipeline.training import resolve_config, train

@@ -5,9 +5,10 @@ import argparse
 from pathlib import Path
 
 
-def parse_training_args(argv=None, *, default_config=None, default_model="clstm_decoder"):
+def parse_training_args(argv=None, *, default_config=None, default_model="clstm_decoder",
+                        python_overrides=None):
     parser = argparse.ArgumentParser(description="Train an unrbl_ml_pipeline model on KDF recordings.")
-    parser.add_argument("--model", "-m", default=default_model, help="Registered model name.")
+    parser.add_argument("--model", "-m", help="Registered model name; overrides JSONC model_name.")
     parser.add_argument("--config", "-c", default=default_config, help="Package-native JSONC overrides.")
     parser.add_argument("--data-dir", "-d", help="Override the directory searched for KDF files.")
     parser.add_argument("--output-dir", "-o", help="Directory for saved runs.")
@@ -33,7 +34,15 @@ def parse_training_args(argv=None, *, default_config=None, default_model="clstm_
     parser.add_argument('--list-losses', action='store_true')
     parser.add_argument("--list-models", action="store_true")
     parser.add_argument("--list-steps", action="store_true")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    # General catalogs must work without the default training file or backend.
+    if not ((args.list_models or args.list_steps) and not args.list_losses):
+        from .training.config import resolve_model_name
+        args.model = resolve_model_name(
+            args.model, user_config=python_overrides, config_path=args.config,
+            default_model=default_model,
+        )
+    return args
 
 
 def show_catalog(args):

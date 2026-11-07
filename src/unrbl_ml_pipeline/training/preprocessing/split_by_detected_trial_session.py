@@ -40,6 +40,7 @@ def _chunk_of(f, start, end, suffix):
         timestamp_info=f.timestamp_info.copy(),
         original_nip_time=None if f.original_nip_time is None else f.original_nip_time[start:end].copy(),
         trial_id=f"{f.trial_id}_{suffix}",
+        trial_info=f.trial_info.copy(),
     )
 
 

@@ -53,6 +53,7 @@ class TrainingProgress:
             "load_kdf": "Loading .kdf files",
             "quality_filter": f"Scoring recordings (beta={float(config.get('data', {}).get('beta_threshold', 0)):g})",
             "normalize": "Computing normalization statistics from TRAIN split",
+            "align_trials": "Aligning movement onsets in TRAIN trials",
             "window": f"Building windows (window_size={config.get('model', {}).get('window_size', 50)})",
         }
         if name.startswith("split_"):
@@ -77,6 +78,9 @@ class TrainingProgress:
             counts = " ".join(f"{split}={len(getattr(state, split + '_files'))}"
                               for split in ("train", "val", "test"))
             self.message(f"  Split segments: {counts}")
+        elif name == "align_trials":
+            counts = state.fitted_preprocessing["trial_alignment"]["counts"]
+            self.message("  Trial segments: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
         elif name == "window":
             shapes = " ".join(f"{split}={getattr(state, 'X_' + split).shape}"
                               for split in ("train", "val", "test")

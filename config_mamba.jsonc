@@ -2,6 +2,26 @@
 // Optional: add normalize between select_features and window in preprocessing_steps.
 // Loss choices: mse, mse_pinn, mse_jacobian, mse_pinn_jacobian.
 {
+  "model_name": "mamba_decoder",
+  "preprocessing_steps": [
+    "load_kdf",
+    "quality_filter",
+    "split_by_detected_trial_deadzone",
+    "align_lag",
+    "align_trials", // Comment out this entry to disable per-trial alignment.
+    "select_features",
+    "window"
+  ],
+  // Keep padding identical when comparing global-only and per-trial alignment.
+  "split": {"trial_detection": {"pre_cue_samples": 40}},
+  // Initial sample-based detector settings; inspect training diagnostics before tuning.
+  "trial_alignment": {
+    "feature_indices": "emg",
+    "max_residual_lag_samples": 10,
+    "baseline_samples": 10,
+    "threshold_multiplier": 3.0,
+    "min_active_samples": 3
+  },
   "data": {
     // Opt in to evenly spaced row-order time for unusable clocks; preserve usable clocks.
     "allow_missing_timestamps": true, // I enabled this

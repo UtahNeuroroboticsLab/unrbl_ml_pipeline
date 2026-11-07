@@ -81,7 +81,8 @@ def run(state, config):
                 "target_indices": f.source_indices[first:first+n],
                 "input_end_indices": f.feature_indices[window_size-1:window_size-1+n],
                 "target_times": None if f.nip_time is None else f.nip_time[first:first+n],
-                "nominal_interval": f.nominal_interval, "timing": f.timestamp_info.copy()})
+                "nominal_interval": f.nominal_interval, "timing": f.timestamp_info.copy(),
+                "trial_info": f.trial_info.copy()})
             offset += n
         state.provenance[split_name] = records
         setattr(state, f"X_{split_name}", X)

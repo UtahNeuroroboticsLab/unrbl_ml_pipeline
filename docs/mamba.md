@@ -3,7 +3,7 @@
 The five registered models are `mamba_decoder`, `tcn_mamba_decoder`, `mamba_tcn_decoder`, `mamba_tcl_decoder`, and `mamba_lstm_decoder`. They port decoder-design's official_v2 Mamba-1 topology to TensorFlow/Keras. Runtime use requires neither PyTorch nor the reference checkout. Author licenses are distributed in `training/licenses`.
 
 ```bash
-python testfile.py --model mamba_decoder --config config_mamba.jsonc
+python testfile.py --config config_mamba.jsonc
 python testfile_train_api.py --model mamba_tcl_decoder --config config_mamba.jsonc
 python testfile.py --model mamba_decoder --config config_mamba.jsonc --state-mode reset
 unrbl-train --model mamba_decoder --state-mode carry --list-losses
@@ -24,7 +24,11 @@ model, results = run_training(
 
 # Configuration contract
 
-Configuration order remains model defaults, JSONC, Python overrides, explicit CLI arguments. Mamba-specific settings are:
+Configuration order remains model defaults, JSONC, Python overrides, explicit CLI arguments.
+
+The top-level `model_name` selects the decoder; `model` remains the object containing window and prediction settings. Selection precedence is explicit CLI/API model, Python `model_name`, JSONC `model_name`, then the script's fallback (normally `clstm_decoder`). Selection occurs before model-specific overrides are merged. Both example scripts and `unrbl-train` support this. `run_training(config_path="config_mamba.jsonc")` also selects the configured model; the explicit model argument of `train(model, ...)` remains authoritative. An explicit `--model` does not discard incompatible settings in the file.
+
+Mamba-specific settings are:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -63,6 +67,30 @@ Lag scoring and GS selection use training segments only. Lag `L` makes aligned f
 Selection remains inside the saved model: provide the original raw feature count and ordering. The `emg` candidate preset uses raw indices 192 through 719 when at least 720 features exist; otherwise it uses all columns. Fewer than 48 eligible channels may be selected. All mappings and fitted scores are recorded.
 
 No alignment or windows cross split, segment, file, or acquisition-gap boundaries. Original target/input indices and timestamps appear in `provenance.json`. Mamba defaults enable `data.require_usable_timestamps`: recordings with constant/nonfinite timestamps or missing usable clock information are rejected with a reason in the file selection log. If none remain, training fails clearly. By default, fix acquisition metadata or select recordings with usable timestamps. The explicit fallback below permits proxy timing without claiming it was acquired.
+
+## Optional training trial alignment
+
+`config_mamba.jsonc` adds `align_trials` after `align_lag` and before `select_features` and `window`. Comment out just the `"align_trials",` entry in `preprocessing_steps` to disable it. The complete JSONC list replaces the model's default list; there is no separate enable flag. Other model defaults and presets remain unchanged.
+
+Only training cues receive per-trial residual correction. Validation and test retain global alignment, making their targets identical with the step enabled or disabled. This is offline label preparation, not a runtime EMG transformation or an independent measurement of actual movement. A constant shift preserves cue shape and duration; it cannot repair a slower movement or early release.
+
+The splitter's `split.trial_detection.pre_cue_samples` is 40 in this preset and zero by default. Each trial receives at most half the preceding rest interval, except the first trial can use all available leading rest. Regions never overlap. Keep this setting unchanged when comparing alignment modes; reproducing historical unpadded preprocessing also requires setting it to zero. The quality filter still operates before alignment and can reject recordings before correction.
+
+| `trial_alignment` setting | Default | Meaning |
+|---|---|---|
+| `feature_indices` | `emg` | Amplitude features, using the existing candidate syntax; all columns for 496-feature recordings |
+| `max_residual_lag_samples` | 10 | Search radius around the globally aligned cue onset |
+| `baseline_samples` | 10 | Rest samples immediately preceding the search interval |
+| `threshold_multiplier` | 3.0 | Robust baseline deviation multiplier |
+| `min_active_samples` | 3 | Consecutive above-threshold samples required |
+
+These are initial sample-based engineering settings for MAV/RMS features, not validated physiological thresholds. Do not interpret them as milliseconds without knowing the feature update interval. Configure amplitude columns explicitly for mixed feature sets.
+
+Detection excludes nonfinite and constant channels, subtracts each channel's baseline median, scales by its baseline MAD with a numerical floor, and averages positive standardized amplitudes. A unique sustained rising threshold crossing supplies the onset. Missing or ambiguous onsets, search-bound hits, missing context, truncated movements, and insufficient remaining window samples retain global alignment and receive a recorded fallback reason. Inspection and tuning use training data only.
+
+For residual shift `D = EMG_onset - cue_onset`, the cue moves by `D` without another feature shift. Unsupported edges are cropped rather than wrapped or filled. Original label indices move with labels; aligned timestamps remain on the destination timeline. The effective target offset is `L - D + P`, where `L` is the global lag and `P` the prediction horizon. Each continuous segment retains a separate model-state reset boundary.
+
+Recorded runs save `trial_alignment.png` with up to 12 deterministic successful/fallback examples and per-segment records in `preprocessing.json`. Records include global lag, detected/applied residual shift, local onset positions, original source indices, status, fallback reason, and cropped samples. Counts refer to trial segments because acquisition gaps can divide one trial. `provenance.json` preserves window mappings and original cue metadata. Changing the step list or its settings invalidates an incompatible checkpoint resume.
 
 # Carry inference and loss semantics
 

@@ -52,14 +52,21 @@ def detect_trials_from_kinematics(
     return trials
 
 
-def extend_trials_with_deadzone(trials, total_length):
-    """Extend each trial's end to the next trial's start (capturing the rest period)."""
+def extend_trials_with_deadzone(trials, total_length, pre_cue_samples=0):
+    """Partition rest without overlap, optionally reserving pre-cue context."""
+    if isinstance(pre_cue_samples, bool) or not isinstance(pre_cue_samples, (int, np.integer)) or pre_cue_samples < 0:
+        raise ValueError("split.trial_detection.pre_cue_samples must be a nonnegative integer")
     if not trials:
         return trials
+    starts = []
+    for i, trial in enumerate(trials):
+        available = trial["start"] if i == 0 else (trial["start"] - trials[i - 1]["end"]) // 2
+        starts.append(trial["start"] - min(pre_cue_samples, available))
     extended = []
     for i, trial in enumerate(trials):
-        new_end = trials[i + 1]["start"] if i + 1 < len(trials) else total_length
-        extended.append({**trial, "end": new_end})
+        new_end = starts[i + 1] if i + 1 < len(trials) else total_length
+        extended.append({**trial, "start": starts[i], "end": new_end,
+                         "cue_start": trial["start"], "cue_end": trial["end"]})
     return extended
 
 

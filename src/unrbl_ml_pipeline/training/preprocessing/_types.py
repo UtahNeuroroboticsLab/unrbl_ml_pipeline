@@ -26,6 +26,8 @@ class KdfFile:
     nominal_interval: Any = None
     timestamp_info: dict = field(default_factory=dict)
     original_nip_time: Any = None
+    # Original cue bounds use source row indices; end is exclusive.
+    trial_info: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.source_indices is None:
@@ -70,6 +72,8 @@ class PipelineState:
 
     fitted_preprocessing: dict = field(default_factory=dict)
     provenance: dict = field(default_factory=dict)
+    # Small, bounded plotting payload, kept out of fitted JSON records.
+    alignment_examples: list[Any] = field(default_factory=list)
 
     # After normalization
     norm_stats: NormStats | None = None

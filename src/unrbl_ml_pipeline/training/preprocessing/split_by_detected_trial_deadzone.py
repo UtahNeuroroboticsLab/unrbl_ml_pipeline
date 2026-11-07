@@ -29,6 +29,7 @@ def _chunk_of(f, start, end, suffix):
         timestamp_info=f.timestamp_info.copy(),
         original_nip_time=None if f.original_nip_time is None else f.original_nip_time[start:end].copy(),
         trial_id=f"{f.trial_id}_{suffix}",
+        trial_info=f.trial_info.copy(),
     )
 
 
@@ -56,6 +57,7 @@ def run(state, config):
     random_state = int(split_cfg.get("random_state", 42))
 
     cfg = split_cfg.get("trial_detection", {})
+    pre_cue_samples = cfg.get("pre_cue_samples", 0)
     non_trial_policy = str(cfg.get("non_trial_policy", "train")).lower()
     det_params = {
         "merge_gap": int(cfg.get("merge_gap", 0)),
@@ -71,7 +73,7 @@ def run(state, config):
 
     for f in state.files:
         detected = detect_trials_from_kinematics(f.kinematics, **det_params)
-        detected = extend_trials_with_deadzone(detected, f.kinematics.shape[0])
+        detected = extend_trials_with_deadzone(detected, f.kinematics.shape[0], pre_cue_samples)
         tid = np.zeros(f.kinematics.shape[0], dtype=np.int64)
         local_to_global = {}
         for i, trial in enumerate(detected, 1):
@@ -84,8 +86,15 @@ def run(state, config):
             if is_trial:
                 gid = local_to_global[local_id]
                 chunk.trial_id = f"trial_{gid}"
+                trial = detected[local_id - 1]
+                chunk.trial_info = {
+                    "kind": "trial", "trial_id": chunk.trial_id,
+                    "cue_start": int(f.source_indices[trial["cue_start"]]),
+                    "cue_end": int(f.source_indices[trial["cue_end"] - 1]) + 1,
+                }
                 trial_segments.setdefault(gid, []).append(chunk)
             else:
+                chunk.trial_info = {"kind": "background"}
                 background_segments.append(chunk)
 
     n_trials = len(trial_segments)
@@ -130,5 +139,6 @@ def run(state, config):
         "n_detected_trials": n_trials,
         "n_movement_types": len(mt_groups),
         "detection_params": det_params,
+        "pre_cue_samples": pre_cue_samples,
     }
     return state

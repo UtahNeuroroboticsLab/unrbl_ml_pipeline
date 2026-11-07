@@ -38,6 +38,23 @@ def deep_merge(base, override):
     return merged
 
 
+def resolve_model_name(explicit=None, *, user_config=None, config_path=None,
+                       default_model="clstm_decoder"):
+    """Select a registered decoder before merging model-specific settings."""
+    from unrbl_ml_pipeline import models
+
+    selected = explicit
+    if selected is None:
+        selected = (user_config or {}).get("model_name")
+    if selected is None and config_path is not None:
+        selected = load_jsonc(config_path).get("model_name")
+    if selected is None:
+        selected = default_model
+    if not isinstance(selected, str) or not selected.strip():
+        raise ValueError("model_name must be a nonempty registered model name")
+    return models.get(selected.strip()).name
+
+
 def _normalize(config, model_name, relative_to=None):
     """Normalize one override layer before merging with lower priorities."""
     config = deepcopy(config)
@@ -95,4 +112,7 @@ def resolve_config(model_name_or_module, user_config=None, config_path=None):
     if user_config is not None:
         base = deep_merge(base, _normalize(user_config, name))
 
+    # An explicit module/name is authoritative, including in the low-level API.
+    if name:
+        base["model_name"] = name
     return base

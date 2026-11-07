@@ -185,6 +185,13 @@ def write_performance_report(run_dir, model, model_name, model_type, results, me
                   f"Prediction lag: {config.get('model', {}).get('prediction_lag_samples', 0)} samples."), ""]
     if 'fitted_preprocessing' in results:
         from .compatibility import LOSS_REQUIREMENTS
+        fitted_summary = dict(results['fitted_preprocessing'])
+        if 'trial_alignment' in fitted_summary:
+            alignment = fitted_summary['trial_alignment']
+            fitted_summary['trial_alignment'] = {
+                k: v for k, v in alignment.items() if k != 'trials'
+            }
+            fitted_summary['trial_alignment']['trial_record_count'] = len(alignment['trials'])
         lines += ['## Mamba training contract', '',
             f"- State mode: {config['state_mode']}",
             '- State resets: recording, split segment, nonpositive timestamp or gap > 1.5 nominal intervals; every epoch/evaluation.',
@@ -193,11 +200,17 @@ def write_performance_report(run_dir, model, model_name, model_type, results, me
             f"- Resume source: {_text(results.get('resume_from') or 'none')}",
             '- Input: raw feature columns, chronological oldest-first windows; selection is embedded.',
             '', '### Fitted preprocessing', '', '```json',
-            json.dumps(results['fitted_preprocessing'], indent=2), '```', '',
+            json.dumps(fitted_summary, indent=2), '```', '',
             'Calibration: ' + link('calibration.json', run_dir / 'calibration.json'),
             'Sample provenance: ' + link('provenance.json', run_dir / 'provenance.json'), '',
             'MSE is recorded as loss; objective and individual penalty histories are recorded separately.', '',
             link('Training objectives', run_dir / 'objectives.png', image=True), '']
+    alignment_plot = run_dir / 'trial_alignment.png'
+    if alignment_plot.is_file():
+        lines += ['## Training trial alignment', '',
+                  'Only training cues receive residual onset correction. Validation and test retain global alignment.', '',
+                  link('Trial alignment diagnostics', alignment_plot, image=True), '',
+                  'Per-trial records: ' + link('preprocessing.json', run_dir / 'preprocessing.json'), '']
     lines += ["## Output processing", ""]
     enabled = []
     for key in ("latching_filter", "deadband", "kalman_filter"):

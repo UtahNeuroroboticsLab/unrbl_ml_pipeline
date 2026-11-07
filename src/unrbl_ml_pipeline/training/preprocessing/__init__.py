@@ -55,6 +55,11 @@ def run_pipeline(steps, config, state=None, progress=None):
     for step_name in steps:
         if not isinstance(step_name, str) or not step_name.isidentifier() or step_name.startswith("_"):
             raise ValueError(f"Invalid preprocessing step: {step_name!r}")
+    if "align_trials" in steps:
+        from .align_trials import settings, validate_steps
+        validate_steps(steps)
+        settings(config)
+    for step_name in steps:
         mod = importlib.import_module("." + step_name, __package__)
         if not callable(getattr(mod, "run", None)):
             raise TypeError(f"{step_name!r} is not a runnable preprocessing step")
