@@ -26,6 +26,14 @@ def main(argv=None):
     if show_catalog(args):
         return 0
     from unrbl_ml_pipeline.training import run_training
+    
+    import time
+    starttime = time.time()
+
+    from datetime import datetime
+
+    # 1. Capture start and end times
+    start_time = datetime.now()
 
     model, results = run_training(
         args.model,
@@ -34,6 +42,11 @@ def main(argv=None):
         data_dir=args.data_dir,
         output_dir=args.output_dir,
     )
+    end_time = datetime.now()
+    print(f"start time: {start_time}")
+    print(f"end time: {end_time}")
+    print(f"TOTAL RUNTIME: {start_time-end_time}")
+    
     if args.save_path:
         from unrbl_ml_pipeline.cli import save_model_copy
         save_model_copy(model, args.save_path)

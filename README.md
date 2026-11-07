@@ -389,3 +389,7 @@ For cluster setup and Slurm submission, see [2026-10-31 - CHPC Mamba training](d
 ```bash
 python testfile.py --model mamba_decoder --config config_mamba.jsonc
 ```
+
+# TODO
+
+make intuitive ubuntu install script
