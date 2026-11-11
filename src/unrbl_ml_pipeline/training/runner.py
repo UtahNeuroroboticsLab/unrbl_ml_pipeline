@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -15,10 +16,19 @@ from .reporting import plot_predictions, write_performance_report
 from .train import _resolve_module, train
 
 
-def create_run_directory(output_dir, model_name):
-    """Create a new directory without overwriting any prior run."""
+def create_run_directory(output_dir, model_name, run_name=None):
+    """Create a new directory without overwriting any prior run.
+
+    An optional run_name is inserted after the model name:
+    ``{model}_{run_name}_{stamp}_{uuid}``.
+    """
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    path = Path(output_dir).resolve() / f"{model_name}_{stamp}_{uuid4().hex[:8]}"
+    label = model_name
+    if run_name is not None:
+        if not isinstance(run_name, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", run_name):
+            raise ValueError("run_name must be a nonempty string of letters, digits, '.', '_' or '-'")
+        label = f"{model_name}_{run_name}"
+    path = Path(output_dir).resolve() / f"{label}_{stamp}_{uuid4().hex[:8]}"
     path.mkdir(parents=True, exist_ok=False)
     return path
 
@@ -100,7 +110,7 @@ def run_training(model=None, *, config=None, config_path=None,
     elif "base_dir" in merged.get("data", {}):
         merged["data"]["base_dir"] = str(Path(merged["data"]["base_dir"]).resolve())
     merged["output_dir"] = str(Path(output_dir or merged.get("output_dir", "outputs")).resolve())
-    run_dir = create_run_directory(merged["output_dir"], mod.name)
+    run_dir = create_run_directory(merged["output_dir"], mod.name, merged.get("run_name"))
     suffix = ".pkl" if getattr(mod, "model_type", "keras") == "estimator" else ".keras"
     model_path = run_dir / ("model" + suffix)
     progress = TrainingProgress(merged.get("preprocessing_steps", []), save_model=True,
@@ -112,7 +122,7 @@ def run_training(model=None, *, config=None, config_path=None,
         progress.stage("Writing run records and diagnostic plots")
         resolved = results["config"]
         _write_json(run_dir / "config.json", resolved)
-        _write_json(run_dir / "run.json", {"model": mod.name, "model_file": model_path.name})
+        _write_json(run_dir / "run.json", {"model": mod.name, "model_file": model_path.name, "run_name": merged.get("run_name")})
         state = results["state"]
         _write_json(run_dir / "selection.json", state.selection_report)
         _write_json(run_dir / "splits.json", state.split_info)

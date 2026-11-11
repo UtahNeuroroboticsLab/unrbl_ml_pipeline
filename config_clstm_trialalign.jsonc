@@ -1,0 +1,77 @@
+// Non-stateful CLSTM with global lag alignment plus per-trial alignment.
+// Data: data/classproj/LF. Run with:
+//   python testfile.py --config config_clstm_trialalign.jsonc
+// Paths in this file are relative to this file, independent of your shell directory.
+
+// python testfile.py --config config_clstm_trialalign.jsonc --run-name mytest --epochs N
+{
+  "model_name": "clstm_decoder",
+  // Optional label inserted in the run folder name; --run-name on the CLI overrides it.
+  "run_name": "trialalign",
+  "preprocessing_steps": [
+    "load_kdf",
+    "quality_filter",
+    "split_by_detected_trial_deadzone",
+    "align_lag",
+    "align_trials", // Comment out this entry to disable per-trial alignment.
+    "normalize",
+    "window"
+  ],
+  "data": {
+    "base_dir": "data/classproj/LF",
+    // LF also holds BaselineData and TaskData KDFs, so match TrainingData only.
+    "kdf_glob": "TrainingData_*.kdf",
+    // Five-section header [1, 720, 12, 12, 12]. Features: 192 unused neural (always zero),
+    // 32 raw + 496 pairwise diff EMG (cols 192-719). The CLSTM path ignores select_features,
+    // so all 720 columns are input; normalize maps the constant-zero columns to 0.
+    "kdf_format": "five_section",
+    "allow_missing_timestamps": false,
+    "sample_interval": null,
+    "beta_threshold": 0.2,
+    "num_raw_features": 720,
+    // Only the first 5 of the 12 columns in the first target group vary.
+    "kinematic_column_indices": [0, 1, 2, 3, 4],
+    "dof_names": ["dof_0", "dof_1", "dof_2", "dof_3", "dof_4"]
+  },
+  "output_dir": "outputs",
+  "loss": {"type": "mse"},
+  "stateful": false,
+  "model": {"window_size": 10, "prediction_lag_samples": 0},
+  "alignment": {"lag_min": -20, "lag_max": 20},
+  "trial_alignment": {
+    "feature_indices": "emg",
+    "max_residual_lag_samples": 10,
+    "baseline_samples": 10,
+    "threshold_multiplier": 3.0,
+    "min_active_samples": 3
+  },
+  "split": {
+    "test_size": 0.15,
+    "val_size": 0.15,
+    "random_state": 42,
+    "trial_detection": {
+      "min_trial_len": 10, "min_peak": 0.5, "merge_gap": 0,
+      "active_eps": 1e-9, "non_trial_policy": "train",
+      "pre_cue_samples": 40
+    }
+  },
+  "architecture": {
+    "conv_filters": 64,
+    "conv_kernel_size": 8,
+    "lstm_units": 128,
+    "dense_units": 50,
+    "use_batch_norm": true,
+    "dropout": 0.0,
+    "use_deadband_activation_output": false
+  },
+  "optimizer": "adam",
+  "learning_rate": 0.0001,
+  "batch_size": 128,
+  "epochs": 200,
+  "early_stopping_patience": 18,
+  "reduce_lr_patience": 8,
+  "postprocessing": {
+    "deadband": {"enabled": false},
+    "latching_filter": {"enabled": false}
+  }
+}

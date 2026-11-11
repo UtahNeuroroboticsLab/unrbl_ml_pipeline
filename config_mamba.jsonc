@@ -53,7 +53,7 @@
   "state_mode": "carry",
   "loss": {
     "type": "mse_pinn_jacobian", // "mse" //
-    "warmup_epochs": 20
+    "warmup_epochs": 0 
   },
   "model": {
     "window_size": 10,
@@ -68,6 +68,6 @@
     "corr_threshold": 0.3,
     "candidates": "emg"
   },
-  "streams": 4,
+  "streams": 16,
   "tbptt_steps": 16
 }

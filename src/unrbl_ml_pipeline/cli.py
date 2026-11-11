@@ -12,6 +12,7 @@ def parse_training_args(argv=None, *, default_config=None, default_model="clstm_
     parser.add_argument("--config", "-c", default=default_config, help="Package-native JSONC overrides.")
     parser.add_argument("--data-dir", "-d", help="Override the directory searched for KDF files.")
     parser.add_argument("--output-dir", "-o", help="Directory for saved runs.")
+    parser.add_argument("--run-name", help="Optional label added to the run folder name; overrides JSONC run_name.")
     parser.add_argument("--save-path", "-s", help="Explicit model path (additional copy for the reporting runner).")
     parser.add_argument("--kdf-glob", help="Recursive pattern relative to data-dir, e.g. hook*/*.kdf.")
     parser.add_argument("--beta", type=float, help="Minimum correlation quality score.")
@@ -73,6 +74,8 @@ def training_overrides(args, python_overrides=None):
     from unrbl_ml_pipeline.training.config import deep_merge
     overrides = {key: getattr(args, key) for key in ("epochs", "batch_size", "learning_rate", "state_mode", "streams", "tbptt_steps", "resume_from")
                  if getattr(args, key) is not None}
+    if args.run_name is not None:
+        overrides["run_name"] = args.run_name
     if args.loss is not None:
         overrides['loss'] = {'type': args.loss}
     data = {key: getattr(args, arg) for key, arg in (
